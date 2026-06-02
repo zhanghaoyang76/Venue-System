@@ -267,7 +267,7 @@ async function hasSlotConflictLegacy(venueId, date, startTime, durationHours = 1
      `${startTime}%`
     ]
   );
-  const n = /** @type {any[]} */ (rows)[0].n;
+  const n = rows[0].n;
   return Number(n) > 0;
 }
 */
