@@ -1,0 +1,344 @@
+<template>
+	<view class="page">
+		<view class="card user-card">
+			<view class="avatar">
+				<text class="avatar-text">{{ firstLetter() }}</text>
+			</view>
+			<view class="user-meta">
+				<text class="user-name">{{ profile.name.length > 0 ? profile.name : '未填写姓名' }}</text>
+				<text class="user-id">{{ profile.studentId.length > 0 ? profile.studentId : '学号/工号未绑定' }}</text>
+			</view>
+		</view>
+
+		<view class="card">
+			<text class="block-title">个人信息</text>
+			<view class="field">
+				<text class="field-label">姓名</text>
+				<input class="field-input" :value="profile.name" placeholder="请输入姓名" @input="onName" />
+			</view>
+			<view class="field">
+				<text class="field-label">学号 / 工号</text>
+				<input
+					class="field-input"
+					:value="profile.studentId"
+					placeholder="学生填学号，教师填工号"
+					@input="onStudentId"
+				/>
+			</view>
+			<view class="field">
+				<text class="field-label">手机</text>
+				<input
+					class="field-input"
+					type="number"
+					:value="profile.phone"
+					placeholder="请输入手机号"
+					@input="onPhone"
+				/>
+			</view>
+			<view class="field">
+				<text class="field-label">学院</text>
+				<input class="field-input" :value="profile.college" placeholder="如：计算机学院" @input="onCollege" />
+			</view>
+			<button class="save-btn" type="primary" @click="save">保存资料</button>
+		</view>
+
+		<view class="card">
+			<text class="block-title">我的预约</text>
+			<view v-if="bookings.length == 0" class="empty">
+				<text class="empty-text">暂无预约记录，请在首页选择场地提交</text>
+			</view>
+			<view v-for="b in bookings" :key="b.id" class="booking-item">
+				<view class="booking-row">
+					<text class="booking-venue">{{ b.venueName }}</text>
+					<text :class="['st', stClass(b)]">{{ stLabel(b) }}</text>
+				</view>
+				<view class="booking-row booking-row-d">
+					<text class="booking-date">{{ b.date }}</text>
+					<text class="booking-slot">{{ b.timeSlot }}</text>
+				</view>
+				<text v-if="b.remark.length > 0" class="booking-remark">备注：{{ b.remark }}</text>
+				<text class="booking-created">提交于 {{ b.createdAt }}</text>
+			</view>
+		</view>
+
+		<button class="switch-role" type="warn" @click="switchRole">切换身份（退出预约端）</button>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onShow } from '@dcloudio/uni-app'
+	import { normalizeBookingStatus, type ProfileData, type BookingRecord } from '../../common/storage.uts'
+	import { getCurrentRole, ROLE_USER } from '../../common/role.uts'
+	import { getToken, apiGetMeFull, apiPutMe, apiListMine, parseError, clearAuth } from '../../common/api.uts'
+
+	type ApiErr = { statusCode: number; body: string }
+
+	const profile = ref<ProfileData>({
+		name: '',
+		studentId: '',
+		phone: '',
+		college: '',
+	})
+	const bookings = ref<BookingRecord[]>([])
+
+	function firstLetter(): string {
+		const n = profile.value.name
+		if (n.length > 0) {
+			return n.substring(0, 1)
+		}
+		return '我'
+	}
+
+	async function refresh(): Promise<void> {
+		const r = await apiGetMeFull()
+		profile.value = r.profile
+		bookings.value = await apiListMine()
+	}
+
+	onShow(() => {
+		if (getToken().length == 0 || getCurrentRole() != ROLE_USER) {
+			uni.reLaunch({ url: '/pages/entry/entry' })
+			return
+		}
+		refresh().catch((e) => {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+			clearAuth()
+			uni.reLaunch({ url: '/pages/entry/entry' })
+		})
+	})
+
+	function stLabel(b: BookingRecord): string {
+		const s = normalizeBookingStatus(b)
+		if (s == 'confirmed') {
+			return '已通过'
+		}
+		if (s == 'rejected') {
+			return '已驳回'
+		}
+		return '待审核'
+	}
+
+	function stClass(b: BookingRecord): string {
+		const s = normalizeBookingStatus(b)
+		if (s == 'confirmed') {
+			return 'st-ok'
+		}
+		if (s == 'rejected') {
+			return 'st-bad'
+		}
+		return 'st-wait'
+	}
+
+	function switchRole(): void {
+		clearAuth()
+		uni.reLaunch({ url: '/pages/entry/entry' })
+	}
+
+	function onName(e: UniInputEvent): void {
+		profile.value.name = e.detail.value
+	}
+
+	function onStudentId(e: UniInputEvent): void {
+		profile.value.studentId = e.detail.value
+	}
+
+	function onPhone(e: UniInputEvent): void {
+		profile.value.phone = e.detail.value
+	}
+
+	function onCollege(e: UniInputEvent): void {
+		profile.value.college = e.detail.value
+	}
+
+	async function save(): Promise<void> {
+		try {
+			await apiPutMe(profile.value)
+			uni.showToast({ title: '已保存', icon: 'success' })
+		} catch (e) {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+		}
+	}
+</script>
+
+<style>
+	.page {
+		flex-direction: column;
+		padding: 22px 18px;
+		padding-bottom: 32px;
+		background-color: #f5f5f7;
+		min-height: 100%;
+	}
+
+	.card {
+		background-color: #ffffff;
+		border-radius: 18px;
+		padding: 18px;
+		margin-bottom: 14px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+		flex-direction: column;
+	}
+
+	.user-card {
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.avatar {
+		width: 56px;
+		height: 56px;
+		border-radius: 28px;
+		background-color: #0066cc;
+		align-items: center;
+		justify-content: center;
+		margin-right: 14px;
+	}
+
+	.avatar-text {
+		font-size: 22px;
+		color: #ffffff;
+		font-weight: 600;
+	}
+
+	.user-meta {
+		flex: 1;
+		flex-direction: column;
+	}
+
+	.user-name {
+		font-size: 20px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 4px;
+	}
+
+	.user-id {
+		font-size: 13px;
+		color: #6e6e73;
+	}
+
+	.block-title {
+		font-size: 17px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 12px;
+	}
+
+	.field {
+		flex-direction: column;
+		margin-bottom: 12px;
+	}
+
+	.field-label {
+		font-size: 13px;
+		color: #6e6e73;
+		margin-bottom: 6px;
+	}
+
+	.field-input {
+		background-color: #ffffff;
+		border-radius: 14px;
+		padding: 12px 14px;
+		font-size: 15px;
+		color: #1d1d1f;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #d2d2d7;
+	}
+
+	.save-btn {
+		margin-top: 4px;
+		border-radius: 999px;
+		background-color: #0066cc;
+		font-size: 15px;
+	}
+
+	.empty {
+		padding: 12px 0;
+		align-items: center;
+	}
+
+	.empty-text {
+		font-size: 13px;
+		color: #86868b;
+		text-align: center;
+		line-height: 20px;
+	}
+
+	.booking-item {
+		flex-direction: column;
+		padding: 12px 0;
+		border-bottom-width: 1px;
+		border-bottom-style: solid;
+		border-bottom-color: #e0e0e0;
+	}
+
+	.booking-row {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 6px;
+	}
+
+	.booking-row-d {
+		margin-bottom: 4px;
+	}
+
+	.st {
+		font-size: 12px;
+		font-weight: 600;
+		padding: 2px 8px;
+		border-radius: 20px;
+	}
+
+	.st-wait {
+		color: #b45309;
+		background-color: #ffedd5;
+	}
+
+	.st-ok {
+		color: #15803d;
+		background-color: #dcfce7;
+	}
+
+	.st-bad {
+		color: #b91c1c;
+		background-color: #fee2e2;
+	}
+
+	.booking-venue {
+		font-size: 15px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.booking-date {
+		font-size: 13px;
+		color: #0066cc;
+	}
+
+	.booking-slot {
+		font-size: 14px;
+		color: #333333;
+		margin-bottom: 4px;
+	}
+
+	.booking-remark {
+		font-size: 13px;
+		color: #6e6e73;
+		margin-bottom: 4px;
+		line-height: 18px;
+	}
+
+	.booking-created {
+		font-size: 12px;
+		color: #86868b;
+	}
+
+	.switch-role {
+		margin-top: 8px;
+		border-radius: 999px;
+		font-size: 14px;
+	}
+</style>

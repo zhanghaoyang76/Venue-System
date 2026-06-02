@@ -1,0 +1,261 @@
+import { API_BASE } from './api-config.uts'
+import { clearCurrentRole } from './role.uts'
+import type { ProfileData, BookingRecord } from './storage.uts'
+
+const KEY_TOKEN = 'venue_api_token'
+
+export function getToken(): string {
+	const t = uni.getStorageSync(KEY_TOKEN) as string
+	if (t == null || t.length == 0) {
+		return ''
+	}
+	return t
+}
+
+export function setToken(token: string): void {
+	uni.setStorageSync(KEY_TOKEN, token)
+}
+
+export function clearToken(): void {
+	uni.removeStorageSync(KEY_TOKEN)
+}
+
+export function clearAuth(): void {
+	clearToken()
+	clearCurrentRole()
+}
+
+type ApiErr = {
+	statusCode: number
+	body: string
+}
+
+export function parseError(e: ApiErr): string {
+	try {
+		const o = JSON.parse(e.body) as UTSJSONObject
+		const msg = o['error'] as string
+		if (msg != null && msg.length > 0) {
+			return msg
+		}
+	} catch (_) {}
+	return '请求失败 ' + e.statusCode
+}
+
+function request(
+	path: string,
+	method: string,
+	body: UTSJSONObject | null,
+	auth: boolean
+): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const headers: UTSJSONObject = {}
+		headers['Content-Type'] = 'application/json'
+		if (auth) {
+			const t = getToken()
+			if (t.length > 0) {
+				headers['Authorization'] = 'Bearer ' + t
+			}
+		}
+		const onOk = (res): void => {
+			const code = res.statusCode
+			let dataStr = '{}'
+			if (res.data != null) {
+				dataStr = JSON.stringify(res.data)
+			}
+			if (code >= 200 && code < 300) {
+				resolve(dataStr)
+			} else {
+				const err: ApiErr = { statusCode: code, body: dataStr }
+				reject(err)
+			}
+		}
+		const onFail = (): void => {
+			const err: ApiErr = { statusCode: 0, body: '{"error":"网络错误"}' }
+			reject(err)
+		}
+		if (body != null && method != 'GET' && method != 'DELETE') {
+			uni.request({
+				url: API_BASE + path,
+				method: method,
+				header: headers,
+				data: body,
+				success: onOk,
+				fail: onFail,
+			})
+		} else {
+			uni.request({
+				url: API_BASE + path,
+				method: method,
+				header: headers,
+				success: onOk,
+				fail: onFail,
+			})
+		}
+	})
+}
+
+export async function apiLoginMock(openid: string): Promise<string> {
+	const body: UTSJSONObject = {}
+	body['mockOpenId'] = openid
+	const raw = await request('/auth/login', 'POST', body, false)
+	const o = JSON.parse(raw) as UTSJSONObject
+	const token = o['token'] as string
+	if (token == null || token.length == 0) {
+		throw new Error('登录未返回 token')
+	}
+	setToken(token)
+	const user = o['user'] as UTSJSONObject
+	return (user['role'] as string) ?? 'user'
+}
+
+export async function apiGetMeFull(): Promise<{ profile: ProfileData; role: string }> {
+	const raw = await request('/me', 'GET', null, true)
+	const o = JSON.parse(raw) as UTSJSONObject
+	const u = o['user'] as UTSJSONObject
+	const profile: ProfileData = {
+		name: (u['name'] as string) ?? '',
+		studentId: (u['studentId'] as string) ?? '',
+		phone: (u['phone'] as string) ?? '',
+		college: (u['college'] as string) ?? '',
+	}
+	const role = (u['role'] as string) ?? 'user'
+	return { profile: profile, role: role }
+}
+
+export async function apiPutMe(p: ProfileData): Promise<void> {
+	const body: UTSJSONObject = {}
+	body['name'] = p.name
+	body['studentId'] = p.studentId
+	body['phone'] = p.phone
+	body['college'] = p.college
+	await request('/me', 'PUT', body, true)
+}
+
+export async function apiCreateBooking(venueId: string, date: string, timeSlot: string, remark: string, courtType: string = 'full', durationHours: number = 1.0): Promise<void> {
+	const body: UTSJSONObject = {}
+	body['venueId'] = venueId
+	body['date'] = date
+	body['timeSlot'] = timeSlot
+	body['remark'] = remark
+	body['courtType'] = courtType
+	body['durationHours'] = durationHours
+	await request('/bookings', 'POST', body, true)
+}
+
+export function mapBooking(o: UTSJSONObject): BookingRecord {
+	return {
+		id: (o['id'] as string) ?? '',
+		venueId: (o['venueId'] as string) ?? '',
+		venueName: (o['venueName'] as string) ?? '',
+		date: (o['date'] as string) ?? '',
+		timeSlot: (o['timeSlot'] as string) ?? '',
+		remark: (o['remark'] as string) ?? '',
+		createdAt: (o['createdAt'] as string) ?? '',
+		status: (o['status'] as string) ?? 'pending',
+	}
+}
+
+export async function apiListMine(): Promise<BookingRecord[]> {
+	const raw = await request('/bookings/mine', 'GET', null, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	const arr = root['list'] as UTSJSONObject[]
+	const out: BookingRecord[] = []
+	for (let i = 0; i < arr.length; i++) {
+		out.push(mapBooking(arr[i]))
+	}
+	return out
+}
+
+export type AdminBookingRow = {
+	id: string
+	venueName: string
+	date: string
+	timeSlot: string
+	remark: string
+	createdAt: string
+	status: string
+	userName: string
+	userStudentId: string
+	userPhone: string
+}
+
+export async function apiAdminList(venueId: string): Promise<AdminBookingRow[]> {
+	let path = '/admin/bookings'
+	if (venueId.length > 0) {
+		path = path + '?venueId=' + encodeURIComponent(venueId)
+	}
+	const raw = await request(path, 'GET', null, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	const arr = root['list'] as UTSJSONObject[]
+	const out: AdminBookingRow[] = []
+	for (let i = 0; i < arr.length; i++) {
+		const o = arr[i]
+		out.push({
+			id: (o['id'] as string) ?? '',
+			venueName: (o['venueName'] as string) ?? '',
+			date: (o['date'] as string) ?? '',
+			timeSlot: (o['timeSlot'] as string) ?? '',
+			remark: (o['remark'] as string) ?? '',
+			createdAt: (o['createdAt'] as string) ?? '',
+			status: (o['status'] as string) ?? 'pending',
+			userName: (o['userName'] as string) ?? '',
+			userStudentId: (o['userStudentId'] as string) ?? '',
+			userPhone: (o['userPhone'] as string) ?? '',
+		})
+	}
+	return out
+}
+
+export async function apiAdminSetStatus(id: string, status: string): Promise<void> {
+	const body: UTSJSONObject = {}
+	body['status'] = status
+	await request('/admin/bookings/' + id + '/status', 'PATCH', body, true)
+}
+
+export async function apiAdminDelete(id: string): Promise<void> {
+	await request('/admin/bookings/' + id, 'DELETE', null, true)
+}
+
+// 提醒功能API
+export type NotificationItem = {
+	id: number
+	type: string
+	title: string
+	content: string
+	venueName?: string
+	date?: string
+	timeSlot?: string
+	isRead: boolean
+	createdAt: string
+}
+
+export async function apiGetNotifications(): Promise<NotificationItem[]> {
+	const raw = await request('/notifications', 'GET', null, true)
+	const o = JSON.parse(raw) as UTSJSONObject
+	const list = o['list'] as UTSJSONObject[] ?? []
+	return list.map((item: UTSJSONObject) => ({
+		id: (item['id'] as number) ?? 0,
+		type: (item['type'] as string) ?? '',
+		title: (item['title'] as string) ?? '',
+		content: (item['content'] as string) ?? '',
+		venueName: (item['venueName'] as string) ?? '',
+		date: (item['date'] as string) ?? '',
+		timeSlot: (item['timeSlot'] as string) ?? '',
+		isRead: Boolean(item['isRead']),
+		createdAt: (item['createdAt'] as string) ?? '',
+	}))
+}
+
+export async function apiGetUnreadNotificationCount(): Promise<number> {
+	const raw = await request('/notifications/unread-count', 'GET', null, true)
+	const o = JSON.parse(raw) as UTSJSONObject
+	return (o['count'] as number) ?? 0
+}
+
+export async function apiMarkNotificationAsRead(id: number): Promise<void> {
+	await request('/notifications/' + id + '/read', 'PATCH', null, true)
+}
+
+export async function apiMarkAllNotificationsAsRead(): Promise<void> {
+	await request('/notifications/read-all', 'PATCH', null, true)
+}

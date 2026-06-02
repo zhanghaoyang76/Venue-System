@@ -1,0 +1,448 @@
+<template>
+	<view class="page">
+		<view v-if="venue == null" class="bad">
+			<text class="bad-text">未找到该场地，请返回首页重新选择。</text>
+			<button class="bad-btn" type="default" @click="back">返回</button>
+		</view>
+
+		<view v-if="venue != null" class="head">
+			<text class="emoji">{{ venue.emoji }}</text>
+			<view class="head-text">
+				<text class="title">{{ venue.name }}</text>
+				<text class="sub">{{ venue.desc }}</text>
+			</view>
+		</view>
+
+		<block v-if="venue != null">
+			<view class="section">
+				<text class="label">预约日期</text>
+				<picker mode="date" :value="dateStr" :start="minDate" :end="maxDate" @change="onDateChange">
+					<view class="picker-box">
+						<text class="picker-val">{{ dateStr }}</text>
+						<text class="picker-tip">点击选择</text>
+					</view>
+				</picker>
+			</view>
+
+			<view class="section">
+				<text class="label">起始时间</text>
+				<picker :range="timeSlots" :value="timeIndex" @change="onTimeChange">
+					<view class="picker-box">
+						<text class="picker-val">{{ timeSlots[timeIndex] }}</text>
+						<text class="picker-tip">点击选择</text>
+					</view>
+				</picker>
+			</view>
+
+			<view v-if="venue.halfCourtEnabled" class="section">
+				<text class="label">场地类型</text>
+				<view class="court-type-selector">
+					<view 
+						:class="['court-type-option', { 'active': courtType === 'full' }]"
+						@click="courtType = 'full'"
+					>
+						<text class="option-text">全场</text>
+					</view>
+					<view 
+						:class="['court-type-option', { 'active': courtType === 'half' }]"
+						@click="courtType = 'half'"
+					>
+						<text class="option-text">半场</text>
+					</view>
+				</view>
+			</view>
+
+			<view class="section">
+				<text class="label">预约时长</text>
+				<view class="duration-selector">
+					<view 
+						v-for="duration in [1, 1.5, 2, 2.5, 3]" 
+						:key="duration"
+						:class="['duration-option', { 'active': selectedDuration === duration }]"
+						@click="selectedDuration = duration"
+					>
+						<text class="option-text">{{ duration }}小时</text>
+					</view>
+				</view>
+			</view>
+
+			<view class="section">
+				<text class="label">备注（选填）</text>
+				<textarea
+					class="textarea"
+					:value="remark"
+					placeholder="如：社团活动、班级比赛等"
+					maxlength="120"
+					@input="onRemarkInput"
+				/>
+			</view>
+
+			<button class="submit" type="primary" @click="submit">提交预约</button>
+			<text class="tips">提交后写入服务器数据库。</text>
+			
+			<view class="back-section">
+				<text class="back-label">返回入口选择</text>
+				<button class="back-btn" type="default" @click="backToEntry">返回学生/教师入口</button>
+				<text class="back-tips">返回登录页面重新选择身份</text>
+			</view>
+		</block>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onLoad, onShow } from '@dcloudio/uni-app'
+	import { getCurrentRole, ROLE_USER, clearAdminAuth } from '../../common/role.uts'
+	import { getVenueById, type VenueItem } from '../../common/venues.uts'
+	import { getToken, apiCreateBooking, parseError, clearAuth } from '../../common/api.uts'
+
+	type ApiErr = { statusCode: number; body: string }
+
+	const venue = ref<VenueItem | null>(null)
+	const dateStr = ref('')
+	const timeIndex = ref(0)
+	const remark = ref('')
+	const minDate = ref('')
+	const maxDate = ref('')
+
+	const timeSlots: string[] = generateTimeSlots()
+	const courtType = ref('full') // full: 全场, half: 半场
+	const selectedDuration = ref(1) // 预约时长（小时数）
+
+	function generateTimeSlots(): string[] {
+		const slots: string[] = []
+		const startHour = 8 // 早上8点开始
+		const endHour = 22 // 晚上10点结束
+		
+		for (let hour = startHour; hour < endHour; hour++) {
+			for (let minute = 0; minute < 60; minute += 30) {
+				const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+				
+				// 只显示起始时间，不显示时间段范围
+				slots.push(startTime)
+			}
+		}
+		return slots
+	}
+
+	function pad(n: number): string {
+		return n < 10 ? '0' + n : '' + n
+	}
+
+	function initDates(): void {
+		const d = new Date()
+		const y = d.getFullYear()
+		const m = d.getMonth() + 1
+		const day = d.getDate()
+		minDate.value = y + '-' + pad(m) + '-' + pad(day)
+		const end = new Date(d.getTime() + 13 * 24 * 60 * 60 * 1000)
+		const ey = end.getFullYear()
+		const em = end.getMonth() + 1
+		const ed = end.getDate()
+		maxDate.value = ey + '-' + pad(em) + '-' + pad(ed)
+		if (dateStr.value.length == 0) {
+			dateStr.value = minDate.value
+		}
+	}
+
+	onLoad((options: OnLoadOptions) => {
+		initDates()
+		const vid = options['venueId'] as string
+		if (vid != null && vid.length > 0) {
+			venue.value = getVenueById(vid)
+		}
+	})
+
+	onShow(() => {
+		if (getToken().length == 0 || getCurrentRole() != ROLE_USER) {
+			uni.reLaunch({ url: '/pages/entry/entry' })
+		}
+	})
+
+	function onDateChange(e: UniPickerChangeEvent): void {
+		dateStr.value = e.detail.value
+	}
+
+	function onTimeChange(e: UniPickerChangeEvent): void {
+		const idx = parseInt(e.detail.value as string)
+		if (!isNaN(idx)) {
+			timeIndex.value = idx
+		}
+	}
+
+	function onRemarkInput(e: UniInputEvent): void {
+		remark.value = e.detail.value
+	}
+
+	function back(): void {
+		uni.navigateBack({})
+	}
+
+	function backToEntry(): void {
+		// 清除所有认证状态
+		clearAuth()
+		clearAdminAuth()
+		uni.reLaunch({ url: '/pages/entry/entry' })
+	}
+
+	async function submit(): Promise<void> {
+		if (venue.value == null) {
+			uni.showToast({ title: '场地信息缺失', icon: 'none' })
+			return
+		}
+		if (dateStr.value.length == 0) {
+			uni.showToast({ title: '请选择日期', icon: 'none' })
+			return
+		}
+		
+		const v = venue.value
+		uni.showLoading({ title: '提交中' })
+		try {
+			await apiCreateBooking(
+				v.id, 
+				dateStr.value, 
+				timeSlots[timeIndex.value], 
+				remark.value,
+				courtType.value,
+				selectedDuration.value
+			)
+			uni.showToast({ title: '预约已保存', icon: 'success' })
+			setTimeout(() => {
+				uni.navigateBack({})
+			}, 500)
+		} catch (e) {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+		} finally {
+			uni.hideLoading()
+		}
+	}
+</script>
+
+<style>
+	.page {
+		flex-direction: column;
+		padding: 22px 18px;
+		padding-bottom: 40px;
+		background-color: #f5f5f7;
+		min-height: 100%;
+	}
+
+	.bad {
+		flex-direction: column;
+		align-items: center;
+		padding: 28px 18px;
+		background-color: #ffffff;
+		border-radius: 18px;
+		margin-bottom: 16px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.bad-text {
+		font-size: 14px;
+		color: #6e6e73;
+		text-align: center;
+		line-height: 22px;
+		margin-bottom: 16px;
+	}
+
+	.bad-btn {
+		min-width: 120px;
+	}
+
+	.head {
+		flex-direction: row;
+		align-items: center;
+		background-color: #ffffff;
+		border-radius: 18px;
+		padding: 20px;
+		margin-bottom: 22px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.emoji {
+		font-size: 40px;
+		margin-right: 12px;
+	}
+
+	.head-text {
+		flex: 1;
+		flex-direction: column;
+	}
+
+	.title {
+		font-size: 22px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 6px;
+	}
+
+	.sub {
+		font-size: 15px;
+		color: #6e6e73;
+		line-height: 22px;
+	}
+
+	.section {
+		flex-direction: column;
+		margin-bottom: 16px;
+	}
+
+	.label {
+		font-size: 14px;
+		color: #1d1d1f;
+		margin-bottom: 8px;
+		font-weight: 600;
+	}
+
+	.picker-box {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		background-color: #ffffff;
+		border-radius: 14px;
+		padding: 14px 16px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #d2d2d7;
+	}
+
+	.picker-val {
+		font-size: 16px;
+		color: #1d1d1f;
+	}
+
+	.picker-tip {
+		font-size: 13px;
+		color: #86868b;
+	}
+
+	.court-type-selector {
+		flex-direction: row;
+		margin-top: 8px;
+	}
+
+	.court-type-option {
+		flex: 1;
+		padding: 12px 16px;
+		background-color: #ffffff;
+		border-radius: 999px;
+		margin-right: 8px;
+		align-items: center;
+		justify-content: center;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #d2d2d7;
+	}
+
+	.court-type-option:last-child {
+		margin-right: 0;
+	}
+
+	.court-type-option.active {
+		background-color: #0066cc;
+		border-color: #0066cc;
+	}
+
+	.court-type-option.active .option-text {
+		color: #ffffff;
+	}
+
+	.option-text {
+		font-size: 14px;
+		font-weight: 400;
+		color: #1d1d1f;
+	}
+
+	.duration-selector {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-top: 8px;
+	}
+
+	.duration-option {
+		padding: 10px 14px;
+		background-color: #ffffff;
+		border-radius: 999px;
+		margin-right: 8px;
+		margin-bottom: 8px;
+		align-items: center;
+		justify-content: center;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #d2d2d7;
+	}
+
+	.duration-option.active {
+		background-color: #0066cc;
+		border-color: #0066cc;
+	}
+
+	.duration-option.active .option-text {
+		color: #ffffff;
+	}
+
+	.textarea {
+		background-color: #ffffff;
+		border-radius: 14px;
+		padding: 14px 16px;
+		min-height: 88px;
+		font-size: 15px;
+		color: #1d1d1f;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #d2d2d7;
+	}
+
+	.submit {
+		margin-top: 10px;
+		border-radius: 999px;
+		background-color: #0066cc;
+		font-size: 16px;
+		font-weight: 400;
+	}
+
+	.tips {
+		margin-top: 12px;
+		font-size: 12px;
+		color: #86868b;
+		text-align: center;
+		line-height: 18px;
+	}
+
+	.back-section {
+		margin-top: 32px;
+		padding-top: 24px;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #d2d2d7;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.back-label {
+		font-size: 14px;
+		color: #6e6e73;
+		margin-bottom: 12px;
+		font-weight: 400;
+	}
+
+	.back-btn {
+		min-width: 200px;
+		border-radius: 999px;
+		background-color: #ffffff;
+		color: #0066cc;
+		font-size: 14px;
+		border-color: #d2d2d7;
+	}
+
+	.back-tips {
+		margin-top: 8px;
+		font-size: 11px;
+		color: #86868b;
+		text-align: center;
+		line-height: 16px;
+	}
+</style>

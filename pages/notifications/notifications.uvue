@@ -1,0 +1,263 @@
+<template>
+	<view class="page">
+		<view class="header">
+			<text class="title">我的提醒</text>
+			<view class="header-actions">
+				<text class="unread-count" v-if="unreadCount > 0">{{ unreadCount }}条未读</text>
+				<text class="mark-all-btn" @click="markAllAsRead">全部标记已读</text>
+			</view>
+		</view>
+
+		<view v-if="notifications.length === 0" class="empty">
+			<text class="empty-icon">📭</text>
+			<text class="empty-text">暂无提醒</text>
+			<text class="empty-sub">所有提醒将在这里显示</text>
+		</view>
+
+		<view v-else class="notification-list">
+			<view 
+				v-for="item in notifications" 
+				:key="item.id"
+				:class="['notification-item', { 'unread': !item.isRead }]"
+				@click="markAsRead(item)"
+			>
+				<view class="notification-header">
+					<text class="notification-title">{{ item.title }}</text>
+					<text v-if="!item.isRead" class="unread-badge">新</text>
+				</view>
+				<text class="notification-content">{{ item.content }}</text>
+				<view v-if="item.venueName" class="notification-details">
+					<text class="detail-item">{{ item.venueName }}</text>
+					<text v-if="item.date" class="detail-item">{{ item.date }} {{ item.timeSlot }}</text>
+				</view>
+				<text class="notification-time">{{ formatTime(item.createdAt) }}</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onLoad, onShow } from '@dcloudio/uni-app'
+	import { apiGetNotifications, apiMarkNotificationAsRead, apiMarkAllNotificationsAsRead, apiGetUnreadNotificationCount, type NotificationItem } from '../../common/api.uts'
+
+	const notifications = ref<NotificationItem[]>([])
+	const unreadCount = ref(0)
+
+	onLoad(() => {
+		loadNotifications()
+	})
+
+	onShow(() => {
+		loadUnreadCount()
+	})
+
+	async function loadNotifications(): Promise<void> {
+		try {
+			const list = await apiGetNotifications()
+			notifications.value = list
+		} catch (e) {
+			uni.showToast({ title: '加载提醒失败', icon: 'none' })
+		}
+	}
+
+	async function loadUnreadCount(): Promise<void> {
+		try {
+			const count = await apiGetUnreadNotificationCount()
+			unreadCount.value = count
+		} catch (e) {
+			// 忽略错误，不影响主要功能
+		}
+	}
+
+	async function markAsRead(item: NotificationItem): Promise<void> {
+		if (item.isRead) return
+
+		try {
+			await apiMarkNotificationAsRead(item.id)
+			item.isRead = true
+			unreadCount.value = Math.max(0, unreadCount.value - 1)
+		} catch (e) {
+			uni.showToast({ title: '标记已读失败', icon: 'none' })
+		}
+	}
+
+	async function markAllAsRead(): Promise<void> {
+		if (unreadCount.value === 0) return
+
+		try {
+			await apiMarkAllNotificationsAsRead()
+			// 更新本地状态
+			notifications.value = notifications.value.map(item => ({
+				...item,
+				isRead: true
+			}))
+			unreadCount.value = 0
+			uni.showToast({ title: '已全部标记为已读', icon: 'success' })
+		} catch (e) {
+			uni.showToast({ title: '操作失败', icon: 'none' })
+		}
+	}
+
+	function formatTime(timeStr: string): string {
+		try {
+			const date = new Date(timeStr)
+			const now = new Date()
+			const diff = now.getTime() - date.getTime()
+			
+			// 今天内
+			if (diff < 24 * 60 * 60 * 1000) {
+				if (diff < 60 * 60 * 1000) {
+					const mins = Math.floor(diff / (60 * 1000))
+					return mins <= 0 ? '刚刚' : `${mins}分钟前`
+				}
+				const hours = Math.floor(diff / (60 * 60 * 1000))
+				return `${hours}小时前`
+			}
+			
+			// 昨天
+			if (diff < 48 * 60 * 60 * 1000) {
+				return '昨天'
+			}
+			
+			// 更早的时间
+			return timeStr.slice(0, 10)
+		} catch (e) {
+			return timeStr.slice(0, 10)
+		}
+	}
+</script>
+
+<style>
+	.page {
+		flex-direction: column;
+		padding: 22px 18px;
+		background-color: #f5f5f7;
+		min-height: 100vh;
+	}
+
+	.header {
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 20px;
+	}
+
+	.title {
+		font-size: 28px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.header-actions {
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.unread-count {
+		font-size: 14px;
+		color: #ff3b30;
+		margin-right: 16px;
+		font-weight: 400;
+	}
+
+	.mark-all-btn {
+		font-size: 14px;
+		color: #0066cc;
+		font-weight: 400;
+	}
+
+	.empty {
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 60px 20px;
+	}
+
+	.empty-icon {
+		font-size: 48px;
+		margin-bottom: 16px;
+	}
+
+	.empty-text {
+		font-size: 16px;
+		color: #6e6e73;
+		margin-bottom: 8px;
+	}
+
+	.empty-sub {
+		font-size: 14px;
+		color: #86868b;
+	}
+
+	.notification-list {
+		flex-direction: column;
+	}
+
+	.notification-item {
+		background-color: #ffffff;
+		border-radius: 18px;
+		padding: 18px;
+		margin-bottom: 12px;
+		border-left-width: 0;
+		border-left-style: solid;
+		border-left-color: #e0e0e0;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.notification-item.unread {
+		border-color: #0066cc;
+		background-color: #ffffff;
+	}
+
+	.notification-header {
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 8px;
+	}
+
+	.notification-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: #1d1d1f;
+		flex: 1;
+	}
+
+	.unread-badge {
+		font-size: 12px;
+		color: #ffffff;
+		background-color: #ff3b30;
+		padding: 2px 8px;
+		border-radius: 999px;
+	}
+
+	.notification-content {
+		font-size: 14px;
+		color: #333333;
+		line-height: 20px;
+		margin-bottom: 8px;
+	}
+
+	.notification-details {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-bottom: 8px;
+	}
+
+	.detail-item {
+		font-size: 12px;
+		color: #6e6e73;
+		background-color: #f3f4f6;
+		padding: 4px 8px;
+		border-radius: 999px;
+		margin-right: 8px;
+		margin-bottom: 4px;
+	}
+
+	.notification-time {
+		font-size: 12px;
+		color: #86868b;
+	}
+</style>

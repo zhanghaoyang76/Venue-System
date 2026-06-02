@@ -1,0 +1,390 @@
+<template>
+	<view class="page">
+		<view class="stats">
+			<view class="stat">
+				<text class="stat-num">{{ statTotal }}</text>
+				<text class="stat-label">全部</text>
+			</view>
+			<view class="stat">
+				<text class="stat-num stat-pending">{{ statPending }}</text>
+				<text class="stat-label">待处理</text>
+			</view>
+			<view class="stat">
+				<text class="stat-num stat-ok">{{ statOk }}</text>
+				<text class="stat-label">已通过</text>
+			</view>
+			<view class="stat">
+				<text class="stat-num stat-bad">{{ statRej }}</text>
+				<text class="stat-label">已驳回</text>
+			</view>
+		</view>
+
+		<view class="toolbar">
+			<text class="toolbar-label">场地筛选</text>
+			<picker :range="filterLabels" :value="filterIndex" @change="onFilterChange">
+				<view class="picker-line">
+					<text class="picker-text">{{ filterLabels[filterIndex] }}</text>
+					<text class="picker-arrow">▼</text>
+				</view>
+			</picker>
+		</view>
+
+		<view v-if="rows.length == 0" class="empty-box">
+			<text class="empty-t">暂无预约数据</text>
+		</view>
+
+		<view v-for="item in rows" :key="item.id" class="card">
+			<view class="card-head">
+				<text class="venue">{{ item.venueName }}</text>
+				<text :class="['tag', tagClass(item.status)]">{{ statusLabel(item.status) }}</text>
+			</view>
+			<text class="line dim sm">预约人：{{ item.userName }} ｜ {{ item.userStudentId }} ｜ {{ item.userPhone }}</text>
+			<text class="line">{{ item.date }}　{{ item.timeSlot }}</text>
+			<text v-if="item.remark.length > 0" class="line dim">备注：{{ item.remark }}</text>
+			<text class="line dim sm">提交时间 {{ item.createdAt }}</text>
+			<view v-if="item.status == 'pending'" class="actions">
+				<button class="btn ok" size="mini" @click="confirmOk(item.id)">通过</button>
+				<button class="btn bad" size="mini" @click="confirmReject(item.id)">驳回</button>
+			</view>
+			<button class="btn-del" size="mini" type="warn" @click="remove(item.id)">删除记录</button>
+		</view>
+
+		<button class="switch-out" type="default" @click="switchRole">切换身份 / 退出管理端</button>
+		<text class="tip">数据来自服务器 MySQL；管理端需使用与 ADMIN_OPENID 一致的 mock 登录。</text>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onLoad, onShow } from '@dcloudio/uni-app'
+	import { VENUE_LIST } from '../../common/venues.uts'
+	import { getCurrentRole, ROLE_ADMIN, isAdminAuthenticated, clearAdminAuth } from '../../common/role.uts'
+	import {
+		getToken,
+		apiAdminList,
+		apiAdminSetStatus,
+		apiAdminDelete,
+		parseError,
+		clearAuth,
+		type AdminBookingRow,
+	} from '../../common/api.uts'
+
+	type ApiErr = { statusCode: number; body: string }
+
+	const filterLabels = ref<string[]>(['全部场地'])
+	const filterIds = ref<string[]>([''])
+	const filterIndex = ref(0)
+	const rows = ref<AdminBookingRow[]>([])
+	const statTotal = ref(0)
+	const statPending = ref(0)
+	const statOk = ref(0)
+	const statRej = ref(0)
+
+	onLoad(() => {
+		const names: string[] = ['全部场地']
+		const ids: string[] = ['']
+		for (let i = 0; i < VENUE_LIST.length; i++) {
+			names.push(VENUE_LIST[i].name)
+			ids.push(VENUE_LIST[i].id)
+		}
+		filterLabels.value = names
+		filterIds.value = ids
+	})
+
+	async function refresh(): Promise<void> {
+		const fid = filterIds.value[filterIndex.value]
+		const list = await apiAdminList(fid)
+		rows.value = list
+
+		statTotal.value = list.length
+		let p = 0
+		let o = 0
+		let r = 0
+		for (let i = 0; i < list.length; i++) {
+			const st = list[i].status
+			if (st == 'pending') {
+				p++
+			} else if (st == 'confirmed') {
+				o++
+			} else if (st == 'rejected') {
+				r++
+			}
+		}
+		statPending.value = p
+		statOk.value = o
+		statRej.value = r
+	}
+
+	onShow(() => {
+		if (getToken().length == 0 || getCurrentRole() != ROLE_ADMIN || !isAdminAuthenticated()) {
+			uni.reLaunch({ url: '/pages/admin/login' })
+			return
+		}
+		refresh().catch((e) => {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+			clearAuth()
+			uni.reLaunch({ url: '/pages/entry/entry' })
+		})
+	})
+
+	function onFilterChange(e: UniPickerChangeEvent): void {
+		const idx = parseInt(e.detail.value as string)
+		if (!isNaN(idx)) {
+			filterIndex.value = idx
+			refresh().catch((e) => {
+				uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+			})
+		}
+	}
+
+	function statusLabel(status: string): string {
+		if (status == 'confirmed') {
+			return '已通过'
+		}
+		if (status == 'rejected') {
+			return '已驳回'
+		}
+		return '待审核'
+	}
+
+	function tagClass(status: string): string {
+		if (status == 'confirmed') {
+			return 'tag-ok'
+		}
+		if (status == 'rejected') {
+			return 'tag-bad'
+		}
+		return 'tag-wait'
+	}
+
+	async function confirmOk(id: string): Promise<void> {
+		try {
+			await apiAdminSetStatus(id, 'confirmed')
+			await refresh()
+			uni.showToast({ title: '已通过', icon: 'success' })
+		} catch (e) {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+		}
+	}
+
+	async function confirmReject(id: string): Promise<void> {
+		try {
+			await apiAdminSetStatus(id, 'rejected')
+			await refresh()
+			uni.showToast({ title: '已驳回', icon: 'none' })
+		} catch (e) {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+		}
+	}
+
+	async function remove(id: string): Promise<void> {
+		try {
+			await apiAdminDelete(id)
+			await refresh()
+			uni.showToast({ title: '已删除', icon: 'none' })
+		} catch (e) {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+		}
+	}
+
+	function switchRole(): void {
+		clearAuth()
+		clearAdminAuth()
+		uni.reLaunch({ url: '/pages/entry/entry' })
+	}
+</script>
+
+<style>
+	.page {
+		flex-direction: column;
+		padding: 22px 18px;
+		padding-bottom: 32px;
+		background-color: #f5f5f7;
+		min-height: 100%;
+	}
+
+	.stats {
+		flex-direction: row;
+		justify-content: space-between;
+		margin-bottom: 14px;
+	}
+
+	.stat {
+		flex: 1;
+		flex-direction: column;
+		align-items: center;
+		background-color: #ffffff;
+		border-radius: 18px;
+		padding: 12px 4px;
+		margin: 0 4px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.stat-num {
+		font-size: 18px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 4px;
+	}
+
+	.stat-pending {
+		color: #b45309;
+	}
+
+	.stat-ok {
+		color: #15803d;
+	}
+
+	.stat-bad {
+		color: #b91c1c;
+	}
+
+	.stat-label {
+		font-size: 11px;
+		color: #6e6e73;
+	}
+
+	.toolbar {
+		flex-direction: column;
+		margin-bottom: 12px;
+	}
+
+	.toolbar-label {
+		font-size: 13px;
+		color: #6e6e73;
+		margin-bottom: 6px;
+	}
+
+	.picker-line {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		background-color: #ffffff;
+		border-radius: 14px;
+		padding: 14px 16px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #d2d2d7;
+	}
+
+	.picker-text {
+		font-size: 15px;
+		color: #1d1d1f;
+	}
+
+	.picker-arrow {
+		font-size: 11px;
+		color: #86868b;
+	}
+
+	.empty-box {
+		padding: 40px 16px;
+		align-items: center;
+	}
+
+	.empty-t {
+		font-size: 14px;
+		color: #86868b;
+	}
+
+	.card {
+		flex-direction: column;
+		background-color: #ffffff;
+		border-radius: 18px;
+		padding: 18px;
+		margin-bottom: 12px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.card-head {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 8px;
+	}
+
+	.venue {
+		font-size: 16px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.tag {
+		font-size: 12px;
+		padding: 3px 10px;
+		border-radius: 999px;
+		font-weight: 600;
+	}
+
+	.tag-wait {
+		color: #b45309;
+		background-color: #ffedd5;
+	}
+
+	.tag-ok {
+		color: #15803d;
+		background-color: #dcfce7;
+	}
+
+	.tag-bad {
+		color: #b91c1c;
+		background-color: #fee2e2;
+	}
+
+	.line {
+		font-size: 14px;
+		color: #333333;
+		margin-bottom: 4px;
+		line-height: 20px;
+	}
+
+	.dim {
+		color: #6e6e73;
+	}
+
+	.sm {
+		font-size: 12px;
+	}
+
+	.actions {
+		flex-direction: row;
+		margin-top: 10px;
+	}
+
+	.btn {
+		margin-right: 10px;
+		border-radius: 999px;
+	}
+
+	.ok {
+		background-color: #15803d;
+		color: #ffffff;
+	}
+
+	.bad {
+		background-color: #b91c1c;
+		color: #ffffff;
+	}
+
+	.btn-del {
+		margin-top: 10px;
+		align-self: flex-start;
+		border-radius: 999px;
+	}
+
+	.switch-out {
+		margin-top: 20px;
+		border-radius: 999px;
+	}
+
+	.tip {
+		margin-top: 10px;
+		font-size: 11px;
+		color: #86868b;
+		line-height: 16px;
+		text-align: center;
+	}
+</style>

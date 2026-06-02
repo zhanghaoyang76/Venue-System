@@ -1,0 +1,35 @@
+export const ROLE_USER = 'user'
+export const ROLE_ADMIN = 'admin'
+
+const KEY_ROLE = 'venue_app_role'
+const KEY_ADMIN_AUTH = 'venue_admin_auth'
+
+export function getCurrentRole(): string {
+	const r = uni.getStorageSync(KEY_ROLE) as string
+	if (r == null || r.length == 0) {
+		return ''
+	}
+	return r
+}
+
+export function setCurrentRole(role: string): void {
+	uni.setStorageSync(KEY_ROLE, role)
+}
+
+export function clearCurrentRole(): void {
+	uni.removeStorageSync(KEY_ROLE)
+}
+
+// 管理端身份验证功能
+export function setAdminAuth(authenticated: boolean): void {
+	uni.setStorageSync(KEY_ADMIN_AUTH, authenticated ? '1' : '0')
+}
+
+export function isAdminAuthenticated(): boolean {
+	const auth = uni.getStorageSync(KEY_ADMIN_AUTH) as string
+	return auth === '1'
+}
+
+export function clearAdminAuth(): void {
+	uni.removeStorageSync(KEY_ADMIN_AUTH)
+}

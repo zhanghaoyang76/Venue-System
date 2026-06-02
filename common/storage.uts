@@ -1,0 +1,108 @@
+export type ProfileData = {
+	name: string
+	studentId: string
+	phone: string
+	college: string
+}
+
+export type BookingRecord = {
+	id: string
+	venueId: string
+	venueName: string
+	date: string
+	timeSlot: string
+	remark: string
+	createdAt: string
+	/** pending | confirmed | rejected */
+	status: string
+}
+
+const KEY_PROFILE = 'venue_booking_profile'
+const KEY_BOOKINGS = 'venue_booking_records'
+
+export function loadProfile(): ProfileData {
+	const raw = uni.getStorageSync(KEY_PROFILE) as string
+	if (raw == null || raw.length == 0) {
+		return {
+			name: '',
+			studentId: '',
+			phone: '',
+			college: '',
+		}
+	}
+	const parsed = JSON.parse(raw) as UTSJSONObject
+	const nameVal = parsed['name']
+	const sidVal = parsed['studentId']
+	const phoneVal = parsed['phone']
+	const collegeVal = parsed['college']
+	return {
+		name: nameVal != null ? nameVal as string : '',
+		studentId: sidVal != null ? sidVal as string : '',
+		phone: phoneVal != null ? phoneVal as string : '',
+		college: collegeVal != null ? collegeVal as string : '',
+	}
+}
+
+export function saveProfile(p: ProfileData): void {
+	uni.setStorageSync(KEY_PROFILE, JSON.stringify(p))
+}
+
+export function saveBookings(list: BookingRecord[]): void {
+	uni.setStorageSync(KEY_BOOKINGS, JSON.stringify(list))
+}
+
+export function loadBookings(): BookingRecord[] {
+	const raw = uni.getStorageSync(KEY_BOOKINGS) as string
+	if (raw == null || raw.length == 0) {
+		return []
+	}
+	const list = JSON.parse(raw) as BookingRecord[]
+	let changed = false
+	for (let i = 0; i < list.length; i++) {
+		const s = list[i].status
+		if (s == null || s.length == 0) {
+			list[i].status = 'pending'
+			changed = true
+		}
+	}
+	if (changed) {
+		saveBookings(list)
+	}
+	return list
+}
+
+export function addBooking(b: BookingRecord): void {
+	const list = loadBookings()
+	list.push(b)
+	saveBookings(list)
+}
+
+export function normalizeBookingStatus(b: BookingRecord): string {
+	const s = b.status
+	if (s == null || s.length == 0) {
+		return 'pending'
+	}
+	return s
+}
+
+export function removeBooking(id: string): void {
+	const list = loadBookings()
+	const next: BookingRecord[] = []
+	for (let i = 0; i < list.length; i++) {
+		if (list[i].id != id) {
+			next.push(list[i])
+		}
+	}
+	saveBookings(next)
+}
+
+export function setBookingStatus(id: string, status: string): void {
+	const list = loadBookings()
+	for (let i = 0; i < list.length; i++) {
+		if (list[i].id == id) {
+			list[i].status = status
+			break
+		}
+	}
+	saveBookings(list)
+}

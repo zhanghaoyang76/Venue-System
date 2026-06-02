@@ -1,0 +1,250 @@
+<template>
+	<view class="page">
+		<view class="hero">
+			<view class="hero-top">
+				<view class="hero-titles">
+					<text class="hero-title">校园场地预约</text>
+					<text class="hero-sub">学生与教师使用 · 选择场地并发起预约</text>
+				</view>
+				<view class="hero-actions">
+					<view class="notification-badge" @click="goNotifications" v-if="unreadCount > 0">
+						<text class="badge-text">{{ unreadCount }}</text>
+					</view>
+					<text class="hero-link" @click="goProfile">我的</text>
+				</view>
+			</view>
+		</view>
+
+		<view class="grid">
+			<view
+				v-for="item in VENUE_LIST"
+				:key="item.id"
+				class="card"
+				:style="{ borderLeftColor: item.accent }"
+				@click="openBooking(item.id)"
+			>
+				<text class="card-emoji">{{ item.emoji }}</text>
+				<view class="card-body">
+					<text class="card-title">{{ item.name }}</text>
+					<text class="card-desc">{{ item.desc }}</text>
+				</view>
+				<text class="card-arrow">›</text>
+			</view>
+		</view>
+
+		<view class="footer-hint">
+			<text class="hint-text">预约记录与资料在「我的」；需切换身份请在我的页选择退出</text>
+		</view>
+
+		<view class="back-section">
+			<button class="back-btn" type="default" @click="backToEntry">返回学生/教师入口</button>
+			<text class="back-tips">返回登录页面重新选择身份</text>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onShow, onLoad } from '@dcloudio/uni-app'
+	import { VENUE_LIST } from '../../common/venues.uts'
+	import { getCurrentRole, ROLE_USER, clearAdminAuth } from '../../common/role.uts'
+	import { getToken, clearAuth, apiGetUnreadNotificationCount } from '../../common/api.uts'
+
+	const unreadCount = ref(0)
+
+	onLoad(() => {
+		loadUnreadCount()
+	})
+
+	onShow(() => {
+		if (getToken().length == 0 || getCurrentRole() != ROLE_USER) {
+			uni.reLaunch({ url: '/pages/entry/entry' })
+		}
+		loadUnreadCount()
+	})
+
+	function openBooking(venueId: string): void {
+		uni.navigateTo({
+			url: '/pages/booking/booking?venueId=' + venueId,
+		})
+	}
+
+	function goProfile(): void {
+		uni.navigateTo({
+			url: '/pages/profile/profile',
+		})
+	}
+
+	function backToEntry(): void {
+		// 清除所有认证状态
+		clearAuth()
+		clearAdminAuth()
+		uni.reLaunch({ url: '/pages/entry/entry' })
+	}
+
+	async function loadUnreadCount(): Promise<void> {
+		try {
+			const count = await apiGetUnreadNotificationCount()
+			unreadCount.value = count
+		} catch (e) {
+			// 忽略错误，不影响主要功能
+		}
+	}
+
+	function goNotifications(): void {
+		uni.navigateTo({
+			url: '/pages/notifications/notifications',
+		})
+	}
+</script>
+
+<style>
+	.page {
+		flex-direction: column;
+		padding: 24px 18px;
+		padding-bottom: 36px;
+		background-color: #f5f5f7;
+		min-height: 100%;
+	}
+
+	.hero {
+		flex-direction: column;
+		margin-bottom: 28px;
+	}
+
+	.hero-top {
+		flex-direction: row;
+		align-items: flex-start;
+		justify-content: space-between;
+	}
+
+	.hero-titles {
+		flex: 1;
+		flex-direction: column;
+		padding-right: 8px;
+	}
+
+	.hero-actions {
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.notification-badge {
+		background-color: #ff3b30;
+		border-radius: 999px;
+		min-width: 22px;
+		height: 22px;
+		align-items: center;
+		justify-content: center;
+		margin-right: 12px;
+	}
+
+	.badge-text {
+		font-size: 12px;
+		color: #ffffff;
+		font-weight: 600;
+	}
+
+	.hero-link {
+		font-size: 15px;
+		color: #0066cc;
+		font-weight: 400;
+		padding: 6px 0;
+	}
+
+	.hero-title {
+		font-size: 30px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 8px;
+	}
+
+	.hero-sub {
+		font-size: 17px;
+		color: #6e6e73;
+		line-height: 25px;
+	}
+
+	.grid {
+		flex-direction: column;
+	}
+
+	.card {
+		flex-direction: row;
+		align-items: center;
+		background-color: #ffffff;
+		border-radius: 18px;
+		padding: 18px;
+		margin-bottom: 12px;
+		border-left-width: 0;
+		border-left-style: solid;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.card-emoji {
+		font-size: 34px;
+		margin-right: 14px;
+	}
+
+	.card-body {
+		flex: 1;
+		flex-direction: column;
+	}
+
+	.card-title {
+		font-size: 17px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 4px;
+	}
+
+	.card-desc {
+		font-size: 14px;
+		color: #6e6e73;
+		line-height: 20px;
+	}
+
+	.card-arrow {
+		font-size: 22px;
+		color: #0066cc;
+		margin-left: 8px;
+	}
+
+	.footer-hint {
+		margin-top: 8px;
+		align-items: center;
+	}
+
+	.hint-text {
+		font-size: 12px;
+		color: #86868b;
+	}
+
+	.back-section {
+		margin-top: 24px;
+		padding-top: 20px;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #d2d2d7;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.back-btn {
+		min-width: 200px;
+		border-radius: 999px;
+		background-color: #ffffff;
+		color: #0066cc;
+		font-size: 14px;
+		border-color: #d2d2d7;
+		margin-bottom: 8px;
+	}
+
+	.back-tips {
+		font-size: 11px;
+		color: #86868b;
+		text-align: center;
+		line-height: 16px;
+	}
+</style>

@@ -1,0 +1,25 @@
+export type VenueItem = {
+	id: string
+	name: string
+	desc: string
+	accent: string
+	emoji: string
+	halfCourtEnabled: boolean
+}
+
+export const VENUE_LIST: VenueItem[] = [
+	{ id: 'football', name: '足球场', desc: '11人制标准足球场，支持半场/全场预约', accent: '#1a7f37', emoji: '⚽', halfCourtEnabled: true },
+	{ id: 'basketball', name: '篮球场', desc: '室内外场地，支持半场/全场预约', accent: '#c45c26', emoji: '🏀', halfCourtEnabled: true },
+	{ id: 'pingpong', name: '乒乓球', desc: '室内球台，含球拍租借说明', accent: '#2563eb', emoji: '🏓', halfCourtEnabled: false },
+	{ id: 'badminton', name: '羽毛球', desc: '塑胶场地，请穿运动鞋入场', accent: '#7c3aed', emoji: '🏸', halfCourtEnabled: false },
+]
+
+export function getVenueById(id: string): VenueItem | null {
+	for (let i = 0; i < VENUE_LIST.length; i++) {
+		const v = VENUE_LIST[i]
+		if (v.id == id) {
+			return v
+		}
+	}
+	return null
+}
