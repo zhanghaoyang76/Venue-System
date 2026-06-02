@@ -40,7 +40,7 @@
 </script>
 
 <style>
-	/*每个页面公共css */
+	/* 每个页面公共 CSS */
 	.uni-row {
 		flex-direction: row;
 	}

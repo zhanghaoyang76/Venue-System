@@ -1,44 +1,78 @@
 <template>
 	<view class="page">
-		<view class="hero">
-			<view class="hero-top">
-				<view class="hero-titles">
-					<text class="hero-title">校园场地预约</text>
-					<text class="hero-sub">学生与教师使用 · 选择场地并发起预约</text>
+		<view class="app-top">
+			<text class="app-title">校园场地预约</text>
+			<view class="top-actions">
+				<view class="mini-chip" @click="goNotifications">
+					<text class="notice-dot" v-if="unreadCount > 0">{{ unreadCount }}</text>
+					<text class="mini-text">...</text>
 				</view>
-				<view class="hero-actions">
-					<view class="notification-badge" @click="goNotifications" v-if="unreadCount > 0">
-						<text class="badge-text">{{ unreadCount }}</text>
-					</view>
-					<text class="hero-link" @click="goProfile">我的</text>
+				<view class="mini-chip">
+					<text class="mini-text">◉</text>
 				</view>
 			</view>
 		</view>
 
-		<view class="grid">
-			<view
-				v-for="item in VENUE_LIST"
-				:key="item.id"
-				class="card"
-				:style="{ borderLeftColor: item.accent }"
-				@click="openBooking(item.id)"
-			>
-				<text class="card-emoji">{{ item.emoji }}</text>
-				<view class="card-body">
-					<text class="card-title">{{ item.name }}</text>
-					<text class="card-desc">{{ item.desc }}</text>
-				</view>
-				<text class="card-arrow">›</text>
+		<view class="hero-card">
+			<image class="hero-img" src="/static/venues/football.jpg" mode="aspectFill" />
+			<view class="hero-copy">
+				<text class="hero-title">运动让校园更精彩</text>
+				<text class="hero-sub">预约场地，开启活力一天</text>
+			</view>
+			<view class="hero-dots">
+				<text class="dot active-dot"></text>
+				<text class="dot"></text>
+				<text class="dot"></text>
 			</view>
 		</view>
 
-		<view class="footer-hint">
-			<text class="hint-text">预约记录与资料在「我的」；需切换身份请在我的页选择退出</text>
+		<view class="search-box" @click="goVenues">
+			<text class="search-icon">⌕</text>
+			<text class="search-text">搜索场地（如：篮球场）</text>
 		</view>
 
-		<view class="back-section">
-			<button class="back-btn" type="default" @click="backToEntry">返回学生/教师入口</button>
-			<text class="back-tips">返回登录页面重新选择身份</text>
+		<view class="category-row">
+			<view v-for="item in VENUE_LIST" :key="item.id" class="category" @click="openBooking(item.id)">
+				<view class="category-icon">
+					<text class="category-emoji">{{ item.emoji }}</text>
+				</view>
+				<text class="category-name">{{ item.name }}</text>
+			</view>
+		</view>
+
+		<view class="section-head">
+			<text class="section-title">热门场地</text>
+			<text class="section-more" @click="goVenues">全部场地 ›</text>
+		</view>
+
+		<view class="venue-list">
+			<view v-for="item in VENUE_LIST" :key="item.id" class="venue-card" @click="openBooking(item.id)">
+				<image class="venue-img" :src="venueImage(item.id)" mode="aspectFill" />
+				<view class="venue-info">
+					<text class="venue-title">{{ item.name }}</text>
+					<text class="venue-meta">体育馆 · 08:00-22:00</text>
+				</view>
+				<text class="status-pill">可预约</text>
+			</view>
+		</view>
+
+		<view class="tabbar">
+			<view class="tab active-tab">
+				<text class="tab-icon">⌂</text>
+				<text class="tab-text">首页</text>
+			</view>
+			<view class="tab" @click="goVenues">
+				<text class="tab-icon">◉</text>
+				<text class="tab-text">场地</text>
+			</view>
+			<view class="tab" @click="goMyBookings">
+				<text class="tab-icon">▣</text>
+				<text class="tab-text">我的预约</text>
+			</view>
+			<view class="tab" @click="goProfile">
+				<text class="tab-icon">♡</text>
+				<text class="tab-text">我的</text>
+			</view>
 		</view>
 	</view>
 </template>
@@ -46,8 +80,8 @@
 <script setup lang="uts">
 	import { onShow, onLoad } from '@dcloudio/uni-app'
 	import { VENUE_LIST } from '../../common/venues.uts'
-	import { getCurrentRole, ROLE_USER, clearAdminAuth } from '../../common/role.uts'
-	import { getToken, clearAuth, apiGetUnreadNotificationCount } from '../../common/api.uts'
+	import { getCurrentRole, ROLE_USER } from '../../common/role.uts'
+	import { getToken, apiGetUnreadNotificationCount } from '../../common/api.uts'
 
 	const unreadCount = ref(0)
 
@@ -58,13 +92,33 @@
 	onShow(() => {
 		if (getToken().length == 0 || getCurrentRole() != ROLE_USER) {
 			uni.reLaunch({ url: '/pages/entry/entry' })
+			return
 		}
 		loadUnreadCount()
 	})
 
+	function venueImage(id: string): string {
+		if (id == 'football') return '/static/venues/football.jpg'
+		if (id == 'basketball') return '/static/venues/basketball.jpg'
+		if (id == 'pingpong') return '/static/venues/pingpong.jpg'
+		return '/static/venues/badminton.jpg'
+	}
+
 	function openBooking(venueId: string): void {
 		uni.navigateTo({
 			url: '/pages/booking/booking?venueId=' + venueId,
+		})
+	}
+
+	function goVenues(): void {
+		uni.navigateTo({
+			url: '/pages/venues/venues',
+		})
+	}
+
+	function goMyBookings(): void {
+		uni.navigateTo({
+			url: '/pages/my-bookings/my-bookings',
 		})
 	}
 
@@ -74,19 +128,11 @@
 		})
 	}
 
-	function backToEntry(): void {
-		// 清除所有认证状态
-		clearAuth()
-		clearAdminAuth()
-		uni.reLaunch({ url: '/pages/entry/entry' })
-	}
-
 	async function loadUnreadCount(): Promise<void> {
 		try {
 			const count = await apiGetUnreadNotificationCount()
 			unreadCount.value = count
 		} catch (e) {
-			// 忽略错误，不影响主要功能
 		}
 	}
 
@@ -100,151 +146,272 @@
 <style>
 	.page {
 		flex-direction: column;
-		padding: 24px 18px;
-		padding-bottom: 36px;
+		padding: 18px 14px 92px;
 		background-color: #f5f5f7;
 		min-height: 100%;
 	}
 
-	.hero {
-		flex-direction: column;
-		margin-bottom: 28px;
-	}
-
-	.hero-top {
+	.app-top {
 		flex-direction: row;
-		align-items: flex-start;
+		align-items: center;
 		justify-content: space-between;
+		margin-bottom: 14px;
 	}
 
-	.hero-titles {
-		flex: 1;
-		flex-direction: column;
-		padding-right: 8px;
-	}
-
-	.hero-actions {
-		flex-direction: row;
-		align-items: center;
-	}
-
-	.notification-badge {
-		background-color: #ff3b30;
-		border-radius: 999px;
-		min-width: 22px;
-		height: 22px;
-		align-items: center;
-		justify-content: center;
-		margin-right: 12px;
-	}
-
-	.badge-text {
-		font-size: 12px;
-		color: #ffffff;
-		font-weight: 600;
-	}
-
-	.hero-link {
-		font-size: 15px;
-		color: #0066cc;
-		font-weight: 400;
-		padding: 6px 0;
-	}
-
-	.hero-title {
-		font-size: 30px;
+	.app-title {
+		font-size: 17px;
 		font-weight: 600;
 		color: #1d1d1f;
-		margin-bottom: 8px;
 	}
 
-	.hero-sub {
-		font-size: 17px;
-		color: #6e6e73;
-		line-height: 25px;
-	}
-
-	.grid {
-		flex-direction: column;
-	}
-
-	.card {
+	.top-actions {
 		flex-direction: row;
 		align-items: center;
+	}
+
+	.mini-chip {
+		position: relative;
+		width: 34px;
+		height: 28px;
+		border-radius: 999px;
 		background-color: #ffffff;
-		border-radius: 18px;
-		padding: 18px;
-		margin-bottom: 12px;
-		border-left-width: 0;
-		border-left-style: solid;
+		align-items: center;
+		justify-content: center;
+		margin-left: 6px;
 		border-width: 1px;
 		border-style: solid;
 		border-color: #e0e0e0;
 	}
 
-	.card-emoji {
-		font-size: 34px;
-		margin-right: 14px;
+	.mini-text {
+		font-size: 14px;
+		color: #1d1d1f;
 	}
 
-	.card-body {
+	.notice-dot {
+		position: absolute;
+		right: -4px;
+		top: -7px;
+		min-width: 17px;
+		height: 17px;
+		border-radius: 999px;
+		background-color: #ff3b30;
+		color: #ffffff;
+		font-size: 10px;
+		text-align: center;
+		line-height: 17px;
+	}
+
+	.hero-card {
+		position: relative;
+		height: 168px;
+		border-radius: 12px;
+		overflow: hidden;
+		background-color: #ffffff;
+		margin-bottom: 14px;
+	}
+
+	.hero-img {
+		width: 100%;
+		height: 168px;
+	}
+
+	.hero-copy {
+		position: absolute;
+		left: 16px;
+		top: 20px;
+		flex-direction: column;
+	}
+
+	.hero-title {
+		font-size: 20px;
+		font-weight: 600;
+		color: #ffffff;
+		margin-bottom: 6px;
+	}
+
+	.hero-sub {
+		font-size: 14px;
+		color: #ffffff;
+	}
+
+	.hero-dots {
+		position: absolute;
+		bottom: 12px;
+		left: 0;
+		right: 0;
+		flex-direction: row;
+		justify-content: center;
+	}
+
+	.dot {
+		width: 7px;
+		height: 4px;
+		border-radius: 999px;
+		background-color: rgba(255, 255, 255, 0.58);
+		margin: 0 3px;
+	}
+
+	.active-dot {
+		width: 18px;
+		background-color: #ffffff;
+	}
+
+	.search-box {
+		height: 44px;
+		flex-direction: row;
+		align-items: center;
+		background-color: #ffffff;
+		border-radius: 10px;
+		padding: 0 14px;
+		margin-bottom: 16px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.search-icon {
+		font-size: 18px;
+		color: #86868b;
+		margin-right: 8px;
+	}
+
+	.search-text {
+		font-size: 14px;
+		color: #86868b;
+	}
+
+	.category-row {
+		flex-direction: row;
+		justify-content: space-between;
+		margin-bottom: 20px;
+	}
+
+	.category {
+		flex: 1;
+		align-items: center;
+	}
+
+	.category-icon {
+		width: 46px;
+		height: 46px;
+		border-radius: 23px;
+		background-color: #ffffff;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 8px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.category-emoji {
+		font-size: 25px;
+	}
+
+	.category-name {
+		font-size: 12px;
+		color: #0066cc;
+	}
+
+	.section-head {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 10px;
+	}
+
+	.section-title {
+		font-size: 17px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.section-more {
+		font-size: 13px;
+		color: #86868b;
+	}
+
+	.venue-list {
+		flex-direction: column;
+	}
+
+	.venue-card {
+		flex-direction: row;
+		align-items: center;
+		background-color: #ffffff;
+		border-radius: 10px;
+		padding: 8px;
+		margin-bottom: 10px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.venue-img {
+		width: 92px;
+		height: 62px;
+		border-radius: 8px;
+		margin-right: 12px;
+	}
+
+	.venue-info {
 		flex: 1;
 		flex-direction: column;
 	}
 
-	.card-title {
-		font-size: 17px;
+	.venue-title {
+		font-size: 16px;
 		font-weight: 600;
 		color: #1d1d1f;
-		margin-bottom: 4px;
+		margin-bottom: 5px;
 	}
 
-	.card-desc {
-		font-size: 14px;
-		color: #6e6e73;
-		line-height: 20px;
-	}
-
-	.card-arrow {
-		font-size: 22px;
-		color: #0066cc;
-		margin-left: 8px;
-	}
-
-	.footer-hint {
-		margin-top: 8px;
-		align-items: center;
-	}
-
-	.hint-text {
+	.venue-meta {
 		font-size: 12px;
-		color: #86868b;
+		color: #6e6e73;
 	}
 
-	.back-section {
-		margin-top: 24px;
-		padding-top: 20px;
+	.status-pill {
+		font-size: 12px;
+		color: #15803d;
+		background-color: #f0fdf4;
+		border-radius: 999px;
+		padding: 4px 8px;
+	}
+
+	.tabbar {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 64px;
+		flex-direction: row;
+		background-color: #ffffff;
 		border-top-width: 1px;
 		border-top-style: solid;
-		border-top-color: #d2d2d7;
-		flex-direction: column;
+		border-top-color: #e0e0e0;
+		padding-top: 6px;
+	}
+
+	.tab {
+		flex: 1;
 		align-items: center;
 	}
 
-	.back-btn {
-		min-width: 200px;
-		border-radius: 999px;
-		background-color: #ffffff;
-		color: #0066cc;
-		font-size: 14px;
-		border-color: #d2d2d7;
-		margin-bottom: 8px;
+	.tab-icon {
+		font-size: 18px;
+		color: #86868b;
+		margin-bottom: 3px;
 	}
 
-	.back-tips {
+	.tab-text {
 		font-size: 11px;
 		color: #86868b;
-		text-align: center;
-		line-height: 16px;
+	}
+
+	.active-tab .tab-icon,
+	.active-tab .tab-text {
+		color: #0066cc;
 	}
 </style>

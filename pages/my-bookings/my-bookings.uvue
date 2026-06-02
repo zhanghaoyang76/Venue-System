@@ -1,0 +1,423 @@
+<template>
+	<view class="page">
+		<view class="app-top">
+			<text class="app-title">我的预约</text>
+			<view class="mini-chip">
+				<text class="mini-text">...</text>
+			</view>
+		</view>
+
+		<view class="profile-row">
+			<view class="avatar">
+				<text class="avatar-text">{{ firstLetter() }}</text>
+			</view>
+			<view class="user-meta">
+				<text class="user-name">{{ displayName() }}</text>
+				<text class="user-id">学号：{{ displayStudentId() }}</text>
+			</view>
+			<text class="chevron">›</text>
+		</view>
+
+		<view class="tabs">
+			<view :class="['tab-segment', { 'tab-active': activeTab == 'active' }]" @click="setTab('active')">
+				<text :class="['tab-segment-text', { 'tab-active-text': activeTab == 'active' }]">我的预约</text>
+			</view>
+			<view :class="['tab-segment', { 'tab-active': activeTab == 'history' }]" @click="setTab('history')">
+				<text :class="['tab-segment-text', { 'tab-active-text': activeTab == 'history' }]">历史记录</text>
+			</view>
+			<view :class="['tab-segment', { 'tab-active': activeTab == 'cancelled' }]" @click="setTab('cancelled')">
+				<text :class="['tab-segment-text', { 'tab-active-text': activeTab == 'cancelled' }]">已取消</text>
+			</view>
+		</view>
+
+		<view v-if="filteredBookings().length == 0" class="empty-card">
+			<text class="empty-title">暂无预约记录</text>
+			<text class="empty-sub">在首页选择场地后提交预约。</text>
+		</view>
+
+		<view v-for="b in filteredBookings()" :key="b.id" class="booking-card">
+			<image class="booking-img" :src="venueImage(b.venueId)" mode="aspectFill" />
+			<view class="booking-main">
+				<view class="booking-top">
+					<text :class="['status-chip', stClass(b)]">{{ stLabel(b) }}</text>
+				</view>
+				<text class="booking-title">{{ b.venueName }}</text>
+				<text class="booking-line">{{ b.date }}  {{ b.timeSlot }}</text>
+				<text class="booking-line">预约时间：{{ b.createdAt }}</text>
+				<text v-if="b.remark.length > 0" class="booking-line">备注：{{ b.remark }}</text>
+			</view>
+			<text class="booking-arrow">›</text>
+		</view>
+
+		<view class="tabbar">
+			<view class="tab" @click="goHome">
+				<text class="tab-icon">⌂</text>
+				<text class="tab-text">首页</text>
+			</view>
+			<view class="tab" @click="goVenues">
+				<text class="tab-icon">◉</text>
+				<text class="tab-text">场地</text>
+			</view>
+			<view class="tab active-bottom-tab">
+				<text class="tab-icon">▣</text>
+				<text class="tab-text">我的预约</text>
+			</view>
+			<view class="tab" @click="goProfile">
+				<text class="tab-icon">♡</text>
+				<text class="tab-text">我的</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onShow } from '@dcloudio/uni-app'
+	import { normalizeBookingStatus, type ProfileData, type BookingRecord } from '../../common/storage.uts'
+	import { getCurrentRole, ROLE_USER } from '../../common/role.uts'
+	import { getToken, apiGetMeFull, apiListMine, parseError, clearAuth } from '../../common/api.uts'
+
+	type ApiErr = { statusCode: number; body: string }
+
+	const profile = ref<ProfileData>({
+		name: '',
+		studentId: '',
+		phone: '',
+		college: '',
+	})
+	const bookings = ref<BookingRecord[]>([])
+	const activeTab = ref('active')
+
+	onShow(() => {
+		if (getToken().length == 0 || getCurrentRole() != ROLE_USER) {
+			uni.reLaunch({ url: '/pages/entry/entry' })
+			return
+		}
+		refresh().catch((e) => {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+			clearAuth()
+			uni.reLaunch({ url: '/pages/entry/entry' })
+		})
+	})
+
+	async function refresh(): Promise<void> {
+		const r = await apiGetMeFull()
+		profile.value = r.profile
+		bookings.value = await apiListMine()
+	}
+
+	function setTab(tab: string): void {
+		activeTab.value = tab
+	}
+
+	function displayName(): string {
+		if (profile.value.name.length > 0) return profile.value.name
+		return '张同学'
+	}
+
+	function displayStudentId(): string {
+		if (profile.value.studentId.length > 0) return profile.value.studentId
+		return '2023123456'
+	}
+
+	function firstLetter(): string {
+		const n = displayName()
+		return n.substring(0, 1)
+	}
+
+	function filteredBookings(): BookingRecord[] {
+		const out: BookingRecord[] = []
+		for (let i = 0; i < bookings.value.length; i++) {
+			const b = bookings.value[i]
+			const status = normalizeBookingStatus(b)
+			if (activeTab.value == 'active' && (status == 'pending' || status == 'confirmed')) {
+				out.push(b)
+			}
+			if (activeTab.value == 'history') {
+				out.push(b)
+			}
+			if (activeTab.value == 'cancelled' && status == 'rejected') {
+				out.push(b)
+			}
+		}
+		return out
+	}
+
+	function venueImage(id: string): string {
+		if (id == 'football') return '/static/venues/football.jpg'
+		if (id == 'basketball') return '/static/venues/basketball.jpg'
+		if (id == 'pingpong') return '/static/venues/pingpong.jpg'
+		return '/static/venues/badminton.jpg'
+	}
+
+	function stLabel(b: BookingRecord): string {
+		const s = normalizeBookingStatus(b)
+		if (s == 'confirmed') return '已通过'
+		if (s == 'rejected') return '已取消'
+		return '待审核'
+	}
+
+	function stClass(b: BookingRecord): string {
+		const s = normalizeBookingStatus(b)
+		if (s == 'confirmed') return 'st-ok'
+		if (s == 'rejected') return 'st-bad'
+		return 'st-wait'
+	}
+
+	function goHome(): void {
+		uni.reLaunch({ url: '/pages/index/index' })
+	}
+
+	function goVenues(): void {
+		uni.navigateTo({ url: '/pages/venues/venues' })
+	}
+
+	function goProfile(): void {
+		uni.navigateTo({ url: '/pages/profile/profile' })
+	}
+</script>
+
+<style>
+	.page {
+		flex-direction: column;
+		padding: 18px 14px 92px;
+		background-color: #f5f5f7;
+		min-height: 100%;
+	}
+
+	.app-top {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 18px;
+	}
+
+	.app-title {
+		font-size: 17px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.mini-chip {
+		width: 34px;
+		height: 28px;
+		border-radius: 999px;
+		background-color: #ffffff;
+		align-items: center;
+		justify-content: center;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.mini-text {
+		font-size: 14px;
+		color: #1d1d1f;
+	}
+
+	.profile-row {
+		flex-direction: row;
+		align-items: center;
+		background-color: #ffffff;
+		border-radius: 12px;
+		padding: 12px;
+		margin-bottom: 18px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.avatar {
+		width: 56px;
+		height: 56px;
+		border-radius: 28px;
+		background-color: #eaf3ff;
+		align-items: center;
+		justify-content: center;
+		margin-right: 12px;
+	}
+
+	.avatar-text {
+		font-size: 22px;
+		color: #0066cc;
+		font-weight: 600;
+	}
+
+	.user-meta {
+		flex: 1;
+		flex-direction: column;
+	}
+
+	.user-name {
+		font-size: 17px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 5px;
+	}
+
+	.user-id {
+		font-size: 12px;
+		color: #6e6e73;
+	}
+
+	.chevron {
+		font-size: 24px;
+		color: #86868b;
+	}
+
+	.tabs {
+		flex-direction: row;
+		background-color: #ffffff;
+		border-bottom-width: 1px;
+		border-bottom-style: solid;
+		border-bottom-color: #e0e0e0;
+		margin-left: -14px;
+		margin-right: -14px;
+		margin-bottom: 10px;
+	}
+
+	.tab-segment {
+		flex: 1;
+		align-items: center;
+		padding: 12px 0 10px;
+	}
+
+	.tab-active {
+		border-bottom-width: 2px;
+		border-bottom-style: solid;
+		border-bottom-color: #0066cc;
+	}
+
+	.tab-segment-text {
+		font-size: 13px;
+		color: #6e6e73;
+	}
+
+	.tab-active-text {
+		color: #0066cc;
+		font-weight: 600;
+	}
+
+	.empty-card,
+	.booking-card {
+		background-color: #ffffff;
+		border-radius: 12px;
+		padding: 12px;
+		margin-bottom: 10px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.empty-card {
+		align-items: center;
+		padding: 30px 12px;
+	}
+
+	.empty-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 6px;
+	}
+
+	.empty-sub {
+		font-size: 13px;
+		color: #86868b;
+	}
+
+	.booking-card {
+		flex-direction: row;
+	}
+
+	.booking-img {
+		width: 92px;
+		height: 72px;
+		border-radius: 8px;
+		margin-right: 12px;
+	}
+
+	.booking-main {
+		flex: 1;
+		flex-direction: column;
+	}
+
+	.booking-top {
+		flex-direction: row;
+		margin-bottom: 4px;
+	}
+
+	.status-chip {
+		font-size: 11px;
+		padding: 3px 7px;
+		border-radius: 6px;
+	}
+
+	.st-wait {
+		color: #b45309;
+		background-color: #fff7ed;
+	}
+
+	.st-ok {
+		color: #15803d;
+		background-color: #f0fdf4;
+	}
+
+	.st-bad {
+		color: #ef4444;
+		background-color: #fff1f2;
+	}
+
+	.booking-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 4px;
+	}
+
+	.booking-line {
+		font-size: 12px;
+		color: #6e6e73;
+		line-height: 18px;
+	}
+
+	.booking-arrow {
+		font-size: 22px;
+		color: #86868b;
+		align-self: center;
+	}
+
+	.tabbar {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 64px;
+		flex-direction: row;
+		background-color: #ffffff;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #e0e0e0;
+		padding-top: 6px;
+	}
+
+	.tab {
+		flex: 1;
+		align-items: center;
+	}
+
+	.tab-icon {
+		font-size: 18px;
+		color: #86868b;
+		margin-bottom: 3px;
+	}
+
+	.tab-text {
+		font-size: 11px;
+		color: #86868b;
+	}
+
+	.active-bottom-tab .tab-icon,
+	.active-bottom-tab .tab-text {
+		color: #0066cc;
+	}
+</style>

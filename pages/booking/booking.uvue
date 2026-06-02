@@ -1,127 +1,128 @@
 <template>
 	<view class="page">
-		<view v-if="venue == null" class="bad">
-			<text class="bad-text">未找到该场地，请返回首页重新选择。</text>
-			<button class="bad-btn" type="default" @click="back">返回</button>
+		<view class="app-top">
+			<text class="back-link" @click="back">‹</text>
+			<text class="app-title">场地详情</text>
+			<view class="mini-chip">
+				<text class="mini-text">◎</text>
+			</view>
 		</view>
 
-		<view v-if="venue != null" class="head">
-			<text class="emoji">{{ venue.emoji }}</text>
-			<view class="head-text">
-				<text class="title">{{ venue.name }}</text>
-				<text class="sub">{{ venue.desc }}</text>
-			</view>
+		<view v-if="venue == null" class="bad">
+			<text class="bad-title">未找到场地</text>
+			<text class="bad-text">请返回首页重新选择。</text>
+			<button class="secondary-btn" type="default" @click="back">返回</button>
 		</view>
 
 		<block v-if="venue != null">
-			<view class="section">
-				<text class="label">预约日期</text>
-				<picker mode="date" :value="dateStr" :start="minDate" :end="maxDate" @change="onDateChange">
-					<view class="picker-box">
-						<text class="picker-val">{{ dateStr }}</text>
-						<text class="picker-tip">点击选择</text>
+			<view class="venue-panel">
+				<image class="venue-photo" :src="venueImage(venue.id)" mode="aspectFill" />
+				<view class="venue-copy">
+					<view class="venue-head">
+						<text class="venue-title">{{ venue.name }} 1 号</text>
+						<text class="status-pill">可预约</text>
 					</view>
-				</picker>
+					<text class="venue-line">体育馆西侧</text>
+					<text class="venue-line">08:00-22:00</text>
+				</view>
 			</view>
 
-			<view class="section">
-				<text class="label">起始时间</text>
-				<picker :range="timeSlots" :value="timeIndex" @change="onTimeChange">
-					<view class="picker-box">
-						<text class="picker-val">{{ timeSlots[timeIndex] }}</text>
-						<text class="picker-tip">点击选择</text>
-					</view>
-				</picker>
+			<view class="section-head">
+				<text class="section-title">选择日期</text>
+				<text class="calendar-icon">▣</text>
+			</view>
+			<view class="date-row">
+				<view v-for="item in dateOptions" :key="item.value" :class="['date-card', { 'date-active': item.value == dateStr }]" @click="selectDate(item.value)">
+					<text :class="['date-week', { 'date-active-text': item.value == dateStr }]">{{ item.week }}</text>
+					<text :class="['date-day', { 'date-active-text': item.value == dateStr }]">{{ item.label }}</text>
+				</view>
+			</view>
+
+			<view class="section-head slots-head">
+				<text class="section-title">选择时段</text>
+				<view class="legend">
+					<text class="legend-dot ok-dot"></text>
+					<text class="legend-text">可预约</text>
+					<text class="legend-dot busy-dot"></text>
+					<text class="legend-text">紧张</text>
+					<text class="legend-dot full-dot"></text>
+					<text class="legend-text">已满</text>
+				</view>
+			</view>
+
+			<text class="slot-group">上午</text>
+			<view class="slot-grid">
+				<view v-for="slot in morningSlots" :key="slot" :class="slotClass(slot)" @click="selectSlot(slot)">
+					<text :class="slotTextClass(slot)">{{ slotRange(slot) }}</text>
+					<text :class="slotHintClass(slot)">{{ slotHint(slot) }}</text>
+				</view>
+			</view>
+
+			<text class="slot-group">下午</text>
+			<view class="slot-grid">
+				<view v-for="slot in afternoonSlots" :key="slot" :class="slotClass(slot)" @click="selectSlot(slot)">
+					<text :class="slotTextClass(slot)">{{ slotRange(slot) }}</text>
+					<text :class="slotHintClass(slot)">{{ slotHint(slot) }}</text>
+				</view>
 			</view>
 
 			<view v-if="venue.halfCourtEnabled" class="section">
-				<text class="label">场地类型</text>
-				<view class="court-type-selector">
-					<view 
-						:class="['court-type-option', { 'active': courtType === 'full' }]"
-						@click="courtType = 'full'"
-					>
-						<text class="option-text">全场</text>
+				<text class="section-title">场地类型</text>
+				<view class="segmented">
+					<view :class="['segment', { 'active': courtType === 'full' }]" @click="courtType = 'full'">
+						<text :class="['segment-text', { 'active-text': courtType === 'full' }]">全场</text>
 					</view>
-					<view 
-						:class="['court-type-option', { 'active': courtType === 'half' }]"
-						@click="courtType = 'half'"
-					>
-						<text class="option-text">半场</text>
+					<view :class="['segment', { 'active': courtType === 'half' }]" @click="courtType = 'half'">
+						<text :class="['segment-text', { 'active-text': courtType === 'half' }]">半场</text>
 					</view>
 				</view>
 			</view>
 
-			<view class="section">
-				<text class="label">预约时长</text>
-				<view class="duration-selector">
-					<view 
-						v-for="duration in [1, 1.5, 2, 2.5, 3]" 
-						:key="duration"
-						:class="['duration-option', { 'active': selectedDuration === duration }]"
-						@click="selectedDuration = duration"
-					>
-						<text class="option-text">{{ duration }}小时</text>
-					</view>
+			<view class="summary-card">
+				<view class="summary-row">
+					<text class="summary-label">已选时段</text>
+					<text class="summary-value">{{ slotRange(selectedSlot) }}</text>
+				</view>
+				<view class="summary-row">
+					<text class="summary-label">时长</text>
+					<text class="summary-value">2 小时</text>
+				</view>
+				<view class="summary-row last-row">
+					<text class="summary-label">费用</text>
+					<text class="price">¥ 60 / 2小时</text>
 				</view>
 			</view>
 
-			<view class="section">
-				<text class="label">备注（选填）</text>
-				<textarea
-					class="textarea"
-					:value="remark"
-					placeholder="如：社团活动、班级比赛等"
-					maxlength="120"
-					@input="onRemarkInput"
-				/>
-			</view>
-
-			<button class="submit" type="primary" @click="submit">提交预约</button>
-			<text class="tips">提交后写入服务器数据库。</text>
-			
-			<view class="back-section">
-				<text class="back-label">返回入口选择</text>
-				<button class="back-btn" type="default" @click="backToEntry">返回学生/教师入口</button>
-				<text class="back-tips">返回登录页面重新选择身份</text>
-			</view>
+			<button class="submit" type="primary" @click="submit">立即预约</button>
 		</block>
 	</view>
 </template>
 
 <script setup lang="uts">
 	import { onLoad, onShow } from '@dcloudio/uni-app'
-	import { getCurrentRole, ROLE_USER, clearAdminAuth } from '../../common/role.uts'
+	import { getCurrentRole, ROLE_USER } from '../../common/role.uts'
 	import { getVenueById, type VenueItem } from '../../common/venues.uts'
-	import { getToken, apiCreateBooking, parseError, clearAuth } from '../../common/api.uts'
+	import { getToken, apiCreateBooking, parseError } from '../../common/api.uts'
 
 	type ApiErr = { statusCode: number; body: string }
+	type DateOption = { value: string; week: string; label: string }
 
 	const venue = ref<VenueItem | null>(null)
 	const dateStr = ref('')
-	const timeIndex = ref(0)
-	const remark = ref('')
 	const minDate = ref('')
 	const maxDate = ref('')
+	const remark = ref('')
+	const courtType = ref('full')
+	const selectedSlot = ref('18:00')
+	const dateOptions = ref<DateOption[]>([])
+	const morningSlots = ['06:00', '08:00', '10:00']
+	const afternoonSlots = ['14:00', '16:00', '18:00', '20:00']
 
-	const timeSlots: string[] = generateTimeSlots()
-	const courtType = ref('full') // full: 全场, half: 半场
-	const selectedDuration = ref(1) // 预约时长（小时数）
-
-	function generateTimeSlots(): string[] {
-		const slots: string[] = []
-		const startHour = 8 // 早上8点开始
-		const endHour = 22 // 晚上10点结束
-		
-		for (let hour = startHour; hour < endHour; hour++) {
-			for (let minute = 0; minute < 60; minute += 30) {
-				const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-				
-				// 只显示起始时间，不显示时间段范围
-				slots.push(startTime)
-			}
-		}
-		return slots
+	function venueImage(id: string): string {
+		if (id == 'football') return '/static/venues/football.jpg'
+		if (id == 'basketball') return '/static/venues/basketball.jpg'
+		if (id == 'pingpong') return '/static/venues/pingpong.jpg'
+		return '/static/venues/badminton.jpg'
 	}
 
 	function pad(n: number): string {
@@ -135,13 +136,21 @@
 		const day = d.getDate()
 		minDate.value = y + '-' + pad(m) + '-' + pad(day)
 		const end = new Date(d.getTime() + 13 * 24 * 60 * 60 * 1000)
-		const ey = end.getFullYear()
-		const em = end.getMonth() + 1
-		const ed = end.getDate()
-		maxDate.value = ey + '-' + pad(em) + '-' + pad(ed)
-		if (dateStr.value.length == 0) {
-			dateStr.value = minDate.value
+		maxDate.value = end.getFullYear() + '-' + pad(end.getMonth() + 1) + '-' + pad(end.getDate())
+		dateStr.value = minDate.value
+
+		const weeks = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+		const opts: DateOption[] = []
+		for (let i = 0; i < 6; i++) {
+			const n = new Date(d.getTime() + i * 24 * 60 * 60 * 1000)
+			const value = n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate())
+			opts.push({
+				value: value,
+				week: i == 0 ? '今天' : weeks[n.getDay()],
+				label: pad(n.getMonth() + 1) + '-' + pad(n.getDate()),
+			})
 		}
+		dateOptions.value = opts
 	}
 
 	onLoad((options: OnLoadOptions) => {
@@ -158,30 +167,61 @@
 		}
 	})
 
-	function onDateChange(e: UniPickerChangeEvent): void {
-		dateStr.value = e.detail.value
+	function selectDate(value: string): void {
+		dateStr.value = value
 	}
 
-	function onTimeChange(e: UniPickerChangeEvent): void {
-		const idx = parseInt(e.detail.value as string)
-		if (!isNaN(idx)) {
-			timeIndex.value = idx
+	function selectSlot(slot: string): void {
+		if (slotStatus(slot) != 'full') {
+			selectedSlot.value = slot
 		}
 	}
 
-	function onRemarkInput(e: UniInputEvent): void {
-		remark.value = e.detail.value
+	function slotStatus(slot: string): string {
+		if (slot == '10:00' || slot == '16:00') return 'busy'
+		if (slot == '20:00') return 'full'
+		return 'ok'
+	}
+
+	function slotClass(slot: string): string[] {
+		const out = ['slot-card']
+		if (selectedSlot.value == slot) out.push('slot-selected')
+		const s = slotStatus(slot)
+		if (s == 'busy') out.push('slot-busy')
+		if (s == 'full') out.push('slot-full')
+		return out
+	}
+
+	function slotTextClass(slot: string): string[] {
+		const out = ['slot-time']
+		if (selectedSlot.value == slot) out.push('slot-selected-text')
+		if (slotStatus(slot) == 'full') out.push('slot-full-text')
+		return out
+	}
+
+	function slotHintClass(slot: string): string[] {
+		const out = ['slot-hint']
+		if (selectedSlot.value == slot) out.push('slot-selected-text')
+		if (slotStatus(slot) == 'busy') out.push('slot-busy-text')
+		if (slotStatus(slot) == 'full') out.push('slot-full-text')
+		return out
+	}
+
+	function slotHint(slot: string): string {
+		const s = slotStatus(slot)
+		if (s == 'busy') return '紧张'
+		if (s == 'full') return '已满'
+		return '可预约'
+	}
+
+	function slotRange(slot: string): string {
+		const h = parseInt(slot.substring(0, 2))
+		const next = h + 2
+		return slot + '-' + pad(next) + ':00'
 	}
 
 	function back(): void {
 		uni.navigateBack({})
-	}
-
-	function backToEntry(): void {
-		// 清除所有认证状态
-		clearAuth()
-		clearAdminAuth()
-		uni.reLaunch({ url: '/pages/entry/entry' })
 	}
 
 	async function submit(): Promise<void> {
@@ -197,15 +237,8 @@
 		const v = venue.value
 		uni.showLoading({ title: '提交中' })
 		try {
-			await apiCreateBooking(
-				v.id, 
-				dateStr.value, 
-				timeSlots[timeIndex.value], 
-				remark.value,
-				courtType.value,
-				selectedDuration.value
-			)
-			uni.showToast({ title: '预约已保存', icon: 'success' })
+			await apiCreateBooking(v.id, dateStr.value, selectedSlot.value, remark.value, courtType.value, 2)
+			uni.showToast({ title: '预约已提交', icon: 'success' })
 			setTimeout(() => {
 				uni.navigateBack({})
 			}, 500)
@@ -220,229 +253,360 @@
 <style>
 	.page {
 		flex-direction: column;
-		padding: 22px 18px;
-		padding-bottom: 40px;
+		padding: 18px 14px 34px;
 		background-color: #f5f5f7;
 		min-height: 100%;
+	}
+
+	.app-top {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 14px;
+	}
+
+	.back-link {
+		font-size: 30px;
+		color: #1d1d1f;
+		width: 36px;
+	}
+
+	.app-title {
+		font-size: 17px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.mini-chip {
+		width: 34px;
+		height: 28px;
+		border-radius: 999px;
+		background-color: #ffffff;
+		align-items: center;
+		justify-content: center;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.mini-text {
+		font-size: 14px;
+		color: #1d1d1f;
 	}
 
 	.bad {
 		flex-direction: column;
 		align-items: center;
-		padding: 28px 18px;
+		padding: 32px 20px;
 		background-color: #ffffff;
-		border-radius: 18px;
-		margin-bottom: 16px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #e0e0e0;
+		border-radius: 12px;
+	}
+
+	.bad-title {
+		font-size: 20px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 8px;
 	}
 
 	.bad-text {
 		font-size: 14px;
 		color: #6e6e73;
-		text-align: center;
-		line-height: 22px;
-		margin-bottom: 16px;
+		margin-bottom: 18px;
 	}
 
-	.bad-btn {
-		min-width: 120px;
-	}
-
-	.head {
+	.venue-panel {
 		flex-direction: row;
-		align-items: center;
 		background-color: #ffffff;
-		border-radius: 18px;
-		padding: 20px;
-		margin-bottom: 22px;
+		border-radius: 12px;
+		padding: 10px;
+		margin-bottom: 20px;
 		border-width: 1px;
 		border-style: solid;
 		border-color: #e0e0e0;
 	}
 
-	.emoji {
-		font-size: 40px;
+	.venue-photo {
+		width: 110px;
+		height: 82px;
+		border-radius: 8px;
 		margin-right: 12px;
 	}
 
-	.head-text {
+	.venue-copy {
 		flex: 1;
 		flex-direction: column;
+		justify-content: center;
 	}
 
-	.title {
-		font-size: 22px;
+	.venue-head {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 7px;
+	}
+
+	.venue-title {
+		font-size: 17px;
 		font-weight: 600;
 		color: #1d1d1f;
-		margin-bottom: 6px;
 	}
 
-	.sub {
-		font-size: 15px;
+	.status-pill {
+		font-size: 12px;
+		color: #15803d;
+		background-color: #f0fdf4;
+		padding: 4px 8px;
+		border-radius: 999px;
+	}
+
+	.venue-line {
+		font-size: 12px;
 		color: #6e6e73;
-		line-height: 22px;
+		margin-bottom: 3px;
+	}
+
+	.section-head {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 10px;
+	}
+
+	.section-title {
+		font-size: 17px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.calendar-icon {
+		font-size: 18px;
+		color: #1d1d1f;
+	}
+
+	.date-row {
+		flex-direction: row;
+		margin-bottom: 20px;
+	}
+
+	.date-card {
+		width: 50px;
+		height: 58px;
+		border-radius: 8px;
+		background-color: #ffffff;
+		align-items: center;
+		justify-content: center;
+		margin-right: 6px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.date-active {
+		background-color: #0066cc;
+		border-color: #0066cc;
+	}
+
+	.date-week {
+		font-size: 12px;
+		color: #1d1d1f;
+		margin-bottom: 5px;
+	}
+
+	.date-day {
+		font-size: 12px;
+		color: #1d1d1f;
+	}
+
+	.date-active-text {
+		color: #ffffff;
+	}
+
+	.slots-head {
+		margin-bottom: 8px;
+	}
+
+	.legend {
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.legend-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 3px;
+		margin-left: 8px;
+		margin-right: 3px;
+	}
+
+	.ok-dot {
+		background-color: #16a34a;
+	}
+
+	.busy-dot {
+		background-color: #f59e0b;
+	}
+
+	.full-dot {
+		background-color: #ef4444;
+	}
+
+	.legend-text {
+		font-size: 11px;
+		color: #6e6e73;
+	}
+
+	.slot-group {
+		font-size: 14px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 8px;
+	}
+
+	.slot-grid {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-bottom: 14px;
+	}
+
+	.slot-card {
+		width: 108px;
+		height: 58px;
+		background-color: #ffffff;
+		border-radius: 8px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+		margin-right: 8px;
+		margin-bottom: 8px;
+		padding: 8px;
+	}
+
+	.slot-selected {
+		background-color: #0066cc;
+		border-color: #0066cc;
+	}
+
+	.slot-busy {
+		border-color: #f59e0b;
+	}
+
+	.slot-full {
+		background-color: #f5f5f7;
+	}
+
+	.slot-time {
+		font-size: 12px;
+		color: #1d1d1f;
+		margin-bottom: 8px;
+	}
+
+	.slot-hint {
+		font-size: 12px;
+		color: #15803d;
+	}
+
+	.slot-selected-text {
+		color: #ffffff;
+	}
+
+	.slot-busy-text {
+		color: #f59e0b;
+	}
+
+	.slot-full-text {
+		color: #ef4444;
 	}
 
 	.section {
 		flex-direction: column;
-		margin-bottom: 16px;
+		margin-bottom: 14px;
 	}
 
-	.label {
+	.segmented {
+		flex-direction: row;
+		background-color: #e8e8ed;
+		border-radius: 999px;
+		padding: 3px;
+		margin-top: 10px;
+	}
+
+	.segment {
+		flex: 1;
+		align-items: center;
+		justify-content: center;
+		padding: 10px 12px;
+		border-radius: 999px;
+	}
+
+	.active {
+		background-color: #ffffff;
+	}
+
+	.segment-text {
 		font-size: 14px;
+		color: #6e6e73;
+	}
+
+	.active-text {
 		color: #1d1d1f;
-		margin-bottom: 8px;
 		font-weight: 600;
 	}
 
-	.picker-box {
+	.summary-card {
+		background-color: #ffffff;
+		border-radius: 12px;
+		padding: 14px;
+		margin-top: 4px;
+		margin-bottom: 14px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.summary-row {
 		flex-direction: row;
 		align-items: center;
 		justify-content: space-between;
-		background-color: #ffffff;
-		border-radius: 14px;
-		padding: 14px 16px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #d2d2d7;
+		padding: 8px 0;
+		border-bottom-width: 1px;
+		border-bottom-style: solid;
+		border-bottom-color: #f0f0f0;
 	}
 
-	.picker-val {
-		font-size: 16px;
-		color: #1d1d1f;
+	.last-row {
+		border-bottom-width: 0;
 	}
 
-	.picker-tip {
-		font-size: 13px;
-		color: #86868b;
-	}
-
-	.court-type-selector {
-		flex-direction: row;
-		margin-top: 8px;
-	}
-
-	.court-type-option {
-		flex: 1;
-		padding: 12px 16px;
-		background-color: #ffffff;
-		border-radius: 999px;
-		margin-right: 8px;
-		align-items: center;
-		justify-content: center;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #d2d2d7;
-	}
-
-	.court-type-option:last-child {
-		margin-right: 0;
-	}
-
-	.court-type-option.active {
-		background-color: #0066cc;
-		border-color: #0066cc;
-	}
-
-	.court-type-option.active .option-text {
-		color: #ffffff;
-	}
-
-	.option-text {
+	.summary-label {
 		font-size: 14px;
-		font-weight: 400;
+		color: #6e6e73;
+	}
+
+	.summary-value {
+		font-size: 14px;
 		color: #1d1d1f;
 	}
 
-	.duration-selector {
-		flex-direction: row;
-		flex-wrap: wrap;
-		margin-top: 8px;
-	}
-
-	.duration-option {
-		padding: 10px 14px;
-		background-color: #ffffff;
-		border-radius: 999px;
-		margin-right: 8px;
-		margin-bottom: 8px;
-		align-items: center;
-		justify-content: center;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #d2d2d7;
-	}
-
-	.duration-option.active {
-		background-color: #0066cc;
-		border-color: #0066cc;
-	}
-
-	.duration-option.active .option-text {
-		color: #ffffff;
-	}
-
-	.textarea {
-		background-color: #ffffff;
-		border-radius: 14px;
-		padding: 14px 16px;
-		min-height: 88px;
-		font-size: 15px;
-		color: #1d1d1f;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #d2d2d7;
+	.price {
+		font-size: 20px;
+		font-weight: 600;
+		color: #0066cc;
 	}
 
 	.submit {
-		margin-top: 10px;
-		border-radius: 999px;
+		border-radius: 10px;
 		background-color: #0066cc;
-		font-size: 16px;
-		font-weight: 400;
+		font-size: 17px;
+		font-weight: 600;
+		height: 48px;
 	}
 
-	.tips {
-		margin-top: 12px;
-		font-size: 12px;
-		color: #86868b;
-		text-align: center;
-		line-height: 18px;
-	}
-
-	.back-section {
-		margin-top: 32px;
-		padding-top: 24px;
-		border-top-width: 1px;
-		border-top-style: solid;
-		border-top-color: #d2d2d7;
-		flex-direction: column;
-		align-items: center;
-	}
-
-	.back-label {
-		font-size: 14px;
-		color: #6e6e73;
-		margin-bottom: 12px;
-		font-weight: 400;
-	}
-
-	.back-btn {
-		min-width: 200px;
+	.secondary-btn {
 		border-radius: 999px;
 		background-color: #ffffff;
 		color: #0066cc;
-		font-size: 14px;
-		border-color: #d2d2d7;
-	}
-
-	.back-tips {
-		margin-top: 8px;
-		font-size: 11px;
-		color: #86868b;
-		text-align: center;
-		line-height: 16px;
+		font-size: 15px;
+		border-color: #e0e0e0;
 	}
 </style>

@@ -58,8 +58,8 @@ router.post(
     await createNotification(
       req.user.id,
       'booking_created',
-      'Booking submitted',
-      `Your booking for ${venue.name} on ${dateStr} ${startTime} was submitted.`,
+      '预约已提交',
+      `你已提交 ${venue.name} ${dateStr} ${startTime} 的预约申请。`,
       row.id
     );
 

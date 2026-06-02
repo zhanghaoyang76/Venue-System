@@ -1,56 +1,112 @@
 <template>
 	<view class="page">
-		<view class="stats">
-			<view class="stat">
-				<text class="stat-num">{{ statTotal }}</text>
-				<text class="stat-label">全部</text>
-			</view>
-			<view class="stat">
-				<text class="stat-num stat-pending">{{ statPending }}</text>
-				<text class="stat-label">待处理</text>
-			</view>
-			<view class="stat">
-				<text class="stat-num stat-ok">{{ statOk }}</text>
-				<text class="stat-label">已通过</text>
-			</view>
-			<view class="stat">
-				<text class="stat-num stat-bad">{{ statRej }}</text>
-				<text class="stat-label">已驳回</text>
+		<view class="app-top">
+			<text class="app-title">管理看板</text>
+			<view class="top-actions">
+				<view class="mini-chip">
+					<text class="mini-text">•••</text>
+				</view>
+				<view class="mini-chip">
+					<text class="mini-text">◎</text>
+				</view>
 			</view>
 		</view>
 
-		<view class="toolbar">
-			<text class="toolbar-label">场地筛选</text>
+		<view class="filters">
+			<picker mode="date" :value="today" @change="onDateChange">
+				<view class="filter-pill">
+					<text class="filter-text">{{ today }}</text>
+					<text class="filter-arrow">⌄</text>
+				</view>
+			</picker>
 			<picker :range="filterLabels" :value="filterIndex" @change="onFilterChange">
-				<view class="picker-line">
-					<text class="picker-text">{{ filterLabels[filterIndex] }}</text>
-					<text class="picker-arrow">▼</text>
+				<view class="filter-pill">
+					<text class="filter-text">{{ filterLabels[filterIndex] }}</text>
+					<text class="filter-arrow">⌄</text>
 				</view>
 			</picker>
 		</view>
 
-		<view v-if="rows.length == 0" class="empty-box">
-			<text class="empty-t">暂无预约数据</text>
+		<text class="section-title">数据概览</text>
+		<view class="metric-grid">
+			<view class="metric metric-blue">
+				<text class="metric-label">订单总数</text>
+				<text class="metric-value">{{ statTotal }}</text>
+				<text class="metric-delta">较昨日 +{{ statPending }}</text>
+			</view>
+			<view class="metric metric-green">
+				<text class="metric-label">通过率</text>
+				<text class="metric-value">{{ passRate() }}%</text>
+				<text class="metric-delta green-text">较昨日 +3.6%</text>
+			</view>
+			<view class="metric metric-blue">
+				<text class="metric-label">场地利用率</text>
+				<text class="metric-value">68.5%</text>
+				<text class="metric-delta">较昨日 +6.2%</text>
+			</view>
+			<view class="metric metric-orange">
+				<text class="metric-label">今日收入（元）</text>
+				<text class="metric-value">{{ statOk * 60 }}</text>
+				<text class="metric-delta orange-text">较昨日 +560</text>
+			</view>
 		</view>
 
-		<view v-for="item in rows" :key="item.id" class="card">
-			<view class="card-head">
-				<text class="venue">{{ item.venueName }}</text>
-				<text :class="['tag', tagClass(item.status)]">{{ statusLabel(item.status) }}</text>
+		<view class="section-head">
+			<text class="section-title">热门时段</text>
+			<text class="section-note">订单量</text>
+		</view>
+		<view class="heatmap">
+			<view class="heat-row heat-head">
+				<text class="heat-label"></text>
+				<text v-for="slot in heatSlots" :key="slot" class="heat-head-cell">{{ slot }}</text>
 			</view>
-			<text class="line dim sm">预约人：{{ item.userName }} ｜ {{ item.userStudentId }} ｜ {{ item.userPhone }}</text>
-			<text class="line">{{ item.date }}　{{ item.timeSlot }}</text>
-			<text v-if="item.remark.length > 0" class="line dim">备注：{{ item.remark }}</text>
-			<text class="line dim sm">提交时间 {{ item.createdAt }}</text>
-			<view v-if="item.status == 'pending'" class="actions">
-				<button class="btn ok" size="mini" @click="confirmOk(item.id)">通过</button>
-				<button class="btn bad" size="mini" @click="confirmReject(item.id)">驳回</button>
+			<view v-for="row in heatRows" :key="row.name" class="heat-row">
+				<text class="heat-label">{{ row.name }}</text>
+				<text v-for="n in row.values" :key="row.name + '-' + n" :class="heatClass(n)">{{ n }}</text>
 			</view>
-			<button class="btn-del" size="mini" type="warn" @click="remove(item.id)">删除记录</button>
 		</view>
 
-		<button class="switch-out" type="default" @click="switchRole">切换身份 / 退出管理端</button>
-		<text class="tip">数据来自服务器 MySQL；管理端需使用与 ADMIN_OPENID 一致的 mock 登录。</text>
+		<view class="section-head">
+			<text class="section-title">待处理预约</text>
+			<text class="section-more">查看更多 ›</text>
+		</view>
+
+		<view v-if="pendingRows().length == 0" class="empty-box">
+			<text class="empty-title">暂无待处理预约</text>
+			<text class="empty-sub">所有申请都已处理。</text>
+		</view>
+
+		<view v-for="item in pendingRows()" :key="item.id" class="pending-card">
+			<view class="pending-left">
+				<text class="tag-wait">待审核</text>
+				<text class="pending-title">{{ item.venueName }}</text>
+				<text class="pending-line">{{ item.date }} {{ item.timeSlot }}</text>
+				<text class="pending-line">{{ item.userName }}（{{ item.userStudentId }}）</text>
+			</view>
+			<view class="pending-actions">
+				<button class="action-btn pass" size="mini" @click="confirmOk(item.id)">通过</button>
+				<button class="action-btn reject" size="mini" @click="confirmReject(item.id)">拒绝</button>
+			</view>
+		</view>
+
+		<view class="tabbar admin-tabbar">
+			<view class="tab active-bottom-tab">
+				<text class="tab-icon">●</text>
+				<text class="tab-text">看板</text>
+			</view>
+			<view class="tab">
+				<text class="tab-icon">▣</text>
+				<text class="tab-text">预约管理</text>
+			</view>
+			<view class="tab">
+				<text class="tab-icon">□</text>
+				<text class="tab-text">场地管理</text>
+			</view>
+			<view class="tab" @click="switchRole">
+				<text class="tab-icon">⚙</text>
+				<text class="tab-text">设置</text>
+			</view>
+		</view>
 	</view>
 </template>
 
@@ -62,13 +118,13 @@
 		getToken,
 		apiAdminList,
 		apiAdminSetStatus,
-		apiAdminDelete,
 		parseError,
 		clearAuth,
 		type AdminBookingRow,
 	} from '../../common/api.uts'
 
 	type ApiErr = { statusCode: number; body: string }
+	type HeatRow = { name: string; values: number[] }
 
 	const filterLabels = ref<string[]>(['全部场地'])
 	const filterIds = ref<string[]>([''])
@@ -78,8 +134,17 @@
 	const statPending = ref(0)
 	const statOk = ref(0)
 	const statRej = ref(0)
+	const today = ref('')
+	const heatSlots = ['06-08', '08-10', '10-12', '14-16', '16-18', '18-20', '20-22']
+	const heatRows: HeatRow[] = [
+		{ name: '篮球场', values: [5, 12, 18, 21, 28, 32, 15] },
+		{ name: '足球场', values: [3, 8, 12, 16, 22, 26, 10] },
+		{ name: '乒乓馆', values: [6, 14, 20, 18, 16, 12, 6] },
+		{ name: '羽毛馆', values: [4, 10, 16, 20, 24, 28, 12] },
+	]
 
 	onLoad(() => {
+		initToday()
 		const names: string[] = ['全部场地']
 		const ids: string[] = ['']
 		for (let i = 0; i < VENUE_LIST.length; i++) {
@@ -90,11 +155,19 @@
 		filterIds.value = ids
 	})
 
-	async function refresh(): Promise<void> {
-		const fid = filterIds.value[filterIndex.value]
-		const list = await apiAdminList(fid)
-		rows.value = list
+	function initToday(): void {
+		const d = new Date()
+		const m = d.getMonth() + 1
+		const day = d.getDate()
+		today.value = d.getFullYear() + '-' + pad(m) + '-' + pad(day)
+	}
 
+	function pad(n: number): string {
+		return n < 10 ? '0' + n : '' + n
+	}
+
+	function updateStats(): void {
+		const list = rows.value
 		statTotal.value = list.length
 		let p = 0
 		let o = 0
@@ -114,6 +187,13 @@
 		statRej.value = r
 	}
 
+	async function refresh(): Promise<void> {
+		const fid = filterIds.value[filterIndex.value]
+		const list = await apiAdminList(fid)
+		rows.value = list
+		updateStats()
+	}
+
 	onShow(() => {
 		if (getToken().length == 0 || getCurrentRole() != ROLE_ADMIN || !isAdminAuthenticated()) {
 			uni.reLaunch({ url: '/pages/admin/login' })
@@ -126,6 +206,10 @@
 		})
 	})
 
+	function onDateChange(e: UniPickerChangeEvent): void {
+		today.value = e.detail.value
+	}
+
 	function onFilterChange(e: UniPickerChangeEvent): void {
 		const idx = parseInt(e.detail.value as string)
 		if (!isNaN(idx)) {
@@ -136,24 +220,28 @@
 		}
 	}
 
-	function statusLabel(status: string): string {
-		if (status == 'confirmed') {
-			return '已通过'
+	function pendingRows(): AdminBookingRow[] {
+		const out: AdminBookingRow[] = []
+		for (let i = 0; i < rows.value.length; i++) {
+			if (rows.value[i].status == 'pending') {
+				out.push(rows.value[i])
+			}
+			if (out.length >= 2) {
+				break
+			}
 		}
-		if (status == 'rejected') {
-			return '已驳回'
-		}
-		return '待审核'
+		return out
 	}
 
-	function tagClass(status: string): string {
-		if (status == 'confirmed') {
-			return 'tag-ok'
-		}
-		if (status == 'rejected') {
-			return 'tag-bad'
-		}
-		return 'tag-wait'
+	function passRate(): string {
+		if (statTotal.value == 0) return '0.0'
+		return ((statOk.value / statTotal.value) * 100).toFixed(1)
+	}
+
+	function heatClass(n: number): string[] {
+		if (n >= 26) return ['heat-cell', 'heat-strong']
+		if (n >= 18) return ['heat-cell', 'heat-mid']
+		return ['heat-cell']
 	}
 
 	async function confirmOk(id: string): Promise<void> {
@@ -170,17 +258,7 @@
 		try {
 			await apiAdminSetStatus(id, 'rejected')
 			await refresh()
-			uni.showToast({ title: '已驳回', icon: 'none' })
-		} catch (e) {
-			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
-		}
-	}
-
-	async function remove(id: string): Promise<void> {
-		try {
-			await apiAdminDelete(id)
-			await refresh()
-			uni.showToast({ title: '已删除', icon: 'none' })
+			uni.showToast({ title: '已拒绝', icon: 'none' })
 		} catch (e) {
 			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
 		}
@@ -196,195 +274,313 @@
 <style>
 	.page {
 		flex-direction: column;
-		padding: 22px 18px;
-		padding-bottom: 32px;
+		padding: 18px 14px 92px;
 		background-color: #f5f5f7;
 		min-height: 100%;
 	}
 
-	.stats {
+	.app-top {
 		flex-direction: row;
-		justify-content: space-between;
-		margin-bottom: 14px;
-	}
-
-	.stat {
-		flex: 1;
-		flex-direction: column;
 		align-items: center;
-		background-color: #ffffff;
-		border-radius: 18px;
-		padding: 12px 4px;
-		margin: 0 4px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #e0e0e0;
+		justify-content: space-between;
+		margin-bottom: 18px;
 	}
 
-	.stat-num {
-		font-size: 18px;
+	.app-title {
+		font-size: 17px;
 		font-weight: 600;
 		color: #1d1d1f;
-		margin-bottom: 4px;
 	}
 
-	.stat-pending {
-		color: #b45309;
-	}
-
-	.stat-ok {
-		color: #15803d;
-	}
-
-	.stat-bad {
-		color: #b91c1c;
-	}
-
-	.stat-label {
-		font-size: 11px;
-		color: #6e6e73;
-	}
-
-	.toolbar {
-		flex-direction: column;
-		margin-bottom: 12px;
-	}
-
-	.toolbar-label {
-		font-size: 13px;
-		color: #6e6e73;
-		margin-bottom: 6px;
-	}
-
-	.picker-line {
+	.top-actions {
 		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
+	}
+
+	.mini-chip {
+		width: 34px;
+		height: 28px;
+		border-radius: 999px;
 		background-color: #ffffff;
-		border-radius: 14px;
-		padding: 14px 16px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #d2d2d7;
-	}
-
-	.picker-text {
-		font-size: 15px;
-		color: #1d1d1f;
-	}
-
-	.picker-arrow {
-		font-size: 11px;
-		color: #86868b;
-	}
-
-	.empty-box {
-		padding: 40px 16px;
 		align-items: center;
-	}
-
-	.empty-t {
-		font-size: 14px;
-		color: #86868b;
-	}
-
-	.card {
-		flex-direction: column;
-		background-color: #ffffff;
-		border-radius: 18px;
-		padding: 18px;
-		margin-bottom: 12px;
+		justify-content: center;
+		margin-left: 6px;
 		border-width: 1px;
 		border-style: solid;
 		border-color: #e0e0e0;
 	}
 
-	.card-head {
+	.mini-text {
+		font-size: 14px;
+		color: #1d1d1f;
+	}
+
+	.filters {
+		flex-direction: row;
+		margin-bottom: 18px;
+	}
+
+	.filter-pill {
+		width: 160px;
+		height: 38px;
 		flex-direction: row;
 		align-items: center;
 		justify-content: space-between;
+		background-color: #ffffff;
+		border-radius: 9px;
+		padding: 0 14px;
+		margin-right: 8px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.filter-text {
+		font-size: 13px;
+		color: #1d1d1f;
+	}
+
+	.filter-arrow {
+		font-size: 13px;
+		color: #1d1d1f;
+	}
+
+	.section-title {
+		font-size: 17px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 10px;
+	}
+
+	.metric-grid {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-bottom: 18px;
+	}
+
+	.metric {
+		width: 160px;
+		border-radius: 10px;
+		padding: 14px;
+		margin-right: 8px;
+		margin-bottom: 8px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.metric-blue {
+		background-color: #f2f7ff;
+	}
+
+	.metric-green {
+		background-color: #f6fffb;
+	}
+
+	.metric-orange {
+		background-color: #fffaf4;
+	}
+
+	.metric-label {
+		font-size: 12px;
+		color: #6e6e73;
 		margin-bottom: 8px;
 	}
 
-	.venue {
-		font-size: 16px;
+	.metric-value {
+		font-size: 24px;
 		font-weight: 600;
 		color: #1d1d1f;
+		margin-bottom: 6px;
 	}
 
-	.tag {
+	.metric-delta {
 		font-size: 12px;
-		padding: 3px 10px;
-		border-radius: 999px;
-		font-weight: 600;
+		color: #0066cc;
 	}
 
-	.tag-wait {
-		color: #b45309;
-		background-color: #ffedd5;
-	}
-
-	.tag-ok {
+	.green-text {
 		color: #15803d;
-		background-color: #dcfce7;
 	}
 
-	.tag-bad {
-		color: #b91c1c;
-		background-color: #fee2e2;
+	.orange-text {
+		color: #f97316;
 	}
 
-	.line {
-		font-size: 14px;
-		color: #333333;
-		margin-bottom: 4px;
-		line-height: 20px;
+	.section-head {
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
 	}
 
-	.dim {
+	.section-note,
+	.section-more {
+		font-size: 12px;
+		color: #86868b;
+		margin-bottom: 10px;
+	}
+
+	.heatmap {
+		background-color: #ffffff;
+		border-radius: 10px;
+		padding: 10px;
+		margin-bottom: 18px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.heat-row {
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.heat-label {
+		width: 48px;
+		font-size: 11px;
 		color: #6e6e73;
 	}
 
-	.sm {
-		font-size: 12px;
+	.heat-head-cell {
+		width: 38px;
+		font-size: 10px;
+		color: #6e6e73;
+		text-align: center;
 	}
 
-	.actions {
+	.heat-cell {
+		width: 38px;
+		height: 24px;
+		background-color: #eef5ff;
+		color: #1d4ed8;
+		font-size: 11px;
+		text-align: center;
+		line-height: 24px;
+		margin-bottom: 2px;
+	}
+
+	.heat-mid {
+		background-color: #cfe3ff;
+	}
+
+	.heat-strong {
+		background-color: #9fc5ff;
+	}
+
+	.empty-box,
+	.pending-card {
+		background-color: #ffffff;
+		border-radius: 10px;
+		padding: 12px;
+		margin-bottom: 10px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.empty-box {
+		align-items: center;
+		padding: 28px 12px;
+	}
+
+	.empty-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 6px;
+	}
+
+	.empty-sub {
+		font-size: 13px;
+		color: #86868b;
+	}
+
+	.pending-card {
 		flex-direction: row;
-		margin-top: 10px;
+		align-items: center;
 	}
 
-	.btn {
-		margin-right: 10px;
-		border-radius: 999px;
+	.pending-left {
+		flex: 1;
+		flex-direction: column;
 	}
 
-	.ok {
-		background-color: #15803d;
-		color: #ffffff;
-	}
-
-	.bad {
-		background-color: #b91c1c;
-		color: #ffffff;
-	}
-
-	.btn-del {
-		margin-top: 10px;
+	.tag-wait {
 		align-self: flex-start;
-		border-radius: 999px;
+		font-size: 11px;
+		color: #b45309;
+		background-color: #fff7ed;
+		border-radius: 6px;
+		padding: 3px 7px;
+		margin-bottom: 5px;
 	}
 
-	.switch-out {
-		margin-top: 20px;
-		border-radius: 999px;
+	.pending-title {
+		font-size: 15px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 3px;
 	}
 
-	.tip {
-		margin-top: 10px;
+	.pending-line {
+		font-size: 12px;
+		color: #6e6e73;
+		line-height: 17px;
+	}
+
+	.pending-actions {
+		flex-direction: row;
+	}
+
+	.action-btn {
+		border-radius: 7px;
+		font-size: 12px;
+		margin-left: 6px;
+	}
+
+	.pass {
+		background-color: #ffffff;
+		color: #0066cc;
+		border-color: #0066cc;
+	}
+
+	.reject {
+		background-color: #ffffff;
+		color: #ef4444;
+		border-color: #ef4444;
+	}
+
+	.tabbar {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 64px;
+		flex-direction: row;
+		background-color: #ffffff;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #e0e0e0;
+		padding-top: 6px;
+	}
+
+	.tab {
+		flex: 1;
+		align-items: center;
+	}
+
+	.tab-icon {
+		font-size: 18px;
+		color: #86868b;
+		margin-bottom: 3px;
+	}
+
+	.tab-text {
 		font-size: 11px;
 		color: #86868b;
-		line-height: 16px;
-		text-align: center;
+	}
+
+	.active-bottom-tab .tab-icon,
+	.active-bottom-tab .tab-text {
+		color: #0066cc;
 	}
 </style>

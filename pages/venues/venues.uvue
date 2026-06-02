@@ -1,0 +1,327 @@
+<template>
+	<view class="page">
+		<view class="app-top">
+			<text class="app-title">场地</text>
+			<view class="mini-chip">
+				<text class="mini-text">...</text>
+			</view>
+		</view>
+
+		<view class="search-box">
+			<text class="search-icon">⌕</text>
+			<input class="search-input" :value="keyword" placeholder="搜索场地（如：篮球场）" @input="onKeywordInput" />
+		</view>
+
+		<view class="type-row">
+			<view :class="['type-chip', { 'type-active': selectedType == 'all' }]" @click="selectType('all')">
+				<text :class="['type-text', { 'type-active-text': selectedType == 'all' }]">全部</text>
+			</view>
+			<view v-for="item in VENUE_LIST" :key="item.id" :class="['type-chip', { 'type-active': selectedType == item.id }]" @click="selectType(item.id)">
+				<text :class="['type-text', { 'type-active-text': selectedType == item.id }]">{{ item.name }}</text>
+			</view>
+		</view>
+
+		<view class="venue-list">
+			<view v-for="item in filteredVenues()" :key="item.id" class="venue-card" @click="openBooking(item.id)">
+				<image class="venue-img" :src="venueImage(item.id)" mode="aspectFill" />
+				<view class="venue-info">
+					<view class="venue-head">
+						<text class="venue-title">{{ item.name }} 1号</text>
+						<text class="status-pill">可预约</text>
+					</view>
+					<text class="venue-meta">体育馆西侧</text>
+					<text class="venue-meta">08:00-22:00</text>
+				</view>
+			</view>
+		</view>
+
+		<view v-if="filteredVenues().length == 0" class="empty-card">
+			<text class="empty-title">没有找到场地</text>
+			<text class="empty-sub">换个关键词试试。</text>
+		</view>
+
+		<view class="tabbar">
+			<view class="tab" @click="goHome">
+				<text class="tab-icon">⌂</text>
+				<text class="tab-text">首页</text>
+			</view>
+			<view class="tab active-tab">
+				<text class="tab-icon">◉</text>
+				<text class="tab-text">场地</text>
+			</view>
+			<view class="tab" @click="goMyBookings">
+				<text class="tab-icon">▣</text>
+				<text class="tab-text">我的预约</text>
+			</view>
+			<view class="tab" @click="goProfile">
+				<text class="tab-icon">♡</text>
+				<text class="tab-text">我的</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onShow } from '@dcloudio/uni-app'
+	import { VENUE_LIST, type VenueItem } from '../../common/venues.uts'
+	import { getCurrentRole, ROLE_USER } from '../../common/role.uts'
+	import { getToken } from '../../common/api.uts'
+
+	const keyword = ref('')
+	const selectedType = ref('all')
+
+	onShow(() => {
+		if (getToken().length == 0 || getCurrentRole() != ROLE_USER) {
+			uni.reLaunch({ url: '/pages/entry/entry' })
+		}
+	})
+
+	function onKeywordInput(e: UniInputEvent): void {
+		keyword.value = e.detail.value
+	}
+
+	function selectType(id: string): void {
+		selectedType.value = id
+	}
+
+	function filteredVenues(): VenueItem[] {
+		const out: VenueItem[] = []
+		const kw = keyword.value.trim()
+		for (let i = 0; i < VENUE_LIST.length; i++) {
+			const item = VENUE_LIST[i]
+			const typeOk = selectedType.value == 'all' || selectedType.value == item.id
+			const keywordOk = kw.length == 0 || item.name.indexOf(kw) >= 0 || item.desc.indexOf(kw) >= 0
+			if (typeOk && keywordOk) {
+				out.push(item)
+			}
+		}
+		return out
+	}
+
+	function venueImage(id: string): string {
+		if (id == 'football') return '/static/venues/football.jpg'
+		if (id == 'basketball') return '/static/venues/basketball.jpg'
+		if (id == 'pingpong') return '/static/venues/pingpong.jpg'
+		return '/static/venues/badminton.jpg'
+	}
+
+	function openBooking(venueId: string): void {
+		uni.navigateTo({ url: '/pages/booking/booking?venueId=' + venueId })
+	}
+
+	function goHome(): void {
+		uni.reLaunch({ url: '/pages/index/index' })
+	}
+
+	function goMyBookings(): void {
+		uni.navigateTo({ url: '/pages/my-bookings/my-bookings' })
+	}
+
+	function goProfile(): void {
+		uni.navigateTo({ url: '/pages/profile/profile' })
+	}
+</script>
+
+<style>
+	.page {
+		flex-direction: column;
+		padding: 18px 14px 92px;
+		background-color: #f5f5f7;
+		min-height: 100%;
+	}
+
+	.app-top {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 14px;
+	}
+
+	.app-title {
+		font-size: 24px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.mini-chip {
+		width: 34px;
+		height: 28px;
+		border-radius: 999px;
+		background-color: #ffffff;
+		align-items: center;
+		justify-content: center;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.mini-text {
+		font-size: 14px;
+		color: #1d1d1f;
+	}
+
+	.search-box {
+		height: 44px;
+		flex-direction: row;
+		align-items: center;
+		background-color: #ffffff;
+		border-radius: 10px;
+		padding: 0 14px;
+		margin-bottom: 12px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.search-icon {
+		font-size: 18px;
+		color: #86868b;
+		margin-right: 8px;
+	}
+
+	.search-input {
+		flex: 1;
+		font-size: 14px;
+		color: #1d1d1f;
+	}
+
+	.type-row {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-bottom: 14px;
+	}
+
+	.type-chip {
+		background-color: #ffffff;
+		border-radius: 999px;
+		padding: 8px 12px;
+		margin-right: 8px;
+		margin-bottom: 8px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.type-active {
+		background-color: #0066cc;
+		border-color: #0066cc;
+	}
+
+	.type-text {
+		font-size: 13px;
+		color: #1d1d1f;
+	}
+
+	.type-active-text {
+		color: #ffffff;
+	}
+
+	.venue-list {
+		flex-direction: column;
+	}
+
+	.venue-card {
+		flex-direction: row;
+		background-color: #ffffff;
+		border-radius: 12px;
+		padding: 10px;
+		margin-bottom: 10px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.venue-img {
+		width: 104px;
+		height: 78px;
+		border-radius: 8px;
+		margin-right: 12px;
+	}
+
+	.venue-info {
+		flex: 1;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.venue-head {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 6px;
+	}
+
+	.venue-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.venue-meta {
+		font-size: 12px;
+		color: #6e6e73;
+		margin-bottom: 3px;
+	}
+
+	.status-pill {
+		font-size: 12px;
+		color: #15803d;
+		background-color: #f0fdf4;
+		border-radius: 999px;
+		padding: 4px 8px;
+	}
+
+	.empty-card {
+		background-color: #ffffff;
+		border-radius: 12px;
+		padding: 28px 12px;
+		align-items: center;
+	}
+
+	.empty-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 6px;
+	}
+
+	.empty-sub {
+		font-size: 13px;
+		color: #86868b;
+	}
+
+	.tabbar {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 64px;
+		flex-direction: row;
+		background-color: #ffffff;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #e0e0e0;
+		padding-top: 6px;
+	}
+
+	.tab {
+		flex: 1;
+		align-items: center;
+	}
+
+	.tab-icon {
+		font-size: 18px;
+		color: #86868b;
+		margin-bottom: 3px;
+	}
+
+	.tab-text {
+		font-size: 11px;
+		color: #86868b;
+	}
+
+	.active-tab .tab-icon,
+	.active-tab .tab-text {
+		color: #0066cc;
+	}
+</style>

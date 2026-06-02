@@ -216,7 +216,6 @@ export async function apiAdminDelete(id: string): Promise<void> {
 	await request('/admin/bookings/' + id, 'DELETE', null, true)
 }
 
-// 提醒功能API
 export type NotificationItem = {
 	id: number
 	type: string

@@ -2,8 +2,8 @@
 	<view class="page">
 		<view class="login-container">
 			<view class="header">
-				<text class="title">管理端身份验证</text>
-				<text class="subtitle">请输入管理员密码进入管理后台</text>
+				<text class="title">管理端验证</text>
+				<text class="subtitle">输入管理员密码，进入预约管理看板。</text>
 			</view>
 
 			<view class="form">
@@ -13,22 +13,19 @@
 						class="password-input" 
 						:value="password" 
 						password 
-						placeholder="请输入管理员密码"
+						placeholder="请输入密码"
 						@input="onPasswordInput"
 						@confirm="login"
 					/>
 				</view>
 
 				<button class="login-btn" type="primary" @click="login" :disabled="!password">
-					进入管理后台
+					进入管理看板
 				</button>
 
 				<text class="error-text" v-if="errorMessage">{{ errorMessage }}</text>
 
-				<view class="back-section">
-					<button class="back-btn" type="default" @click="backToEntry">返回入口选择</button>
-					<text class="back-tips">返回登录页面重新选择身份</text>
-				</view>
+				<button class="back-btn" type="default" @click="backToEntry">返回入口</button>
 			</view>
 		</view>
 	</view>
@@ -43,7 +40,6 @@
 	const errorMessage = ref('')
 
 	onLoad(() => {
-		// 如果已经通过验证，直接进入管理后台
 		if (isAdminAuthenticated()) {
 			uni.reLaunch({ url: '/pages/admin/home' })
 		}
@@ -60,7 +56,6 @@
 			return
 		}
 
-		// 验证管理员密码（默认密码：011490）
 		if (password.value === '011490') {
 			setAdminAuth(true)
 			uni.reLaunch({ url: '/pages/admin/home' })
@@ -71,7 +66,6 @@
 	}
 
 	function backToEntry(): void {
-		// 清除所有认证状态
 		clearAuth()
 		clearAdminAuth()
 		uni.reLaunch({ url: '/pages/entry/entry' })
@@ -90,33 +84,31 @@
 
 	.login-container {
 		width: 100%;
-		max-width: 400px;
-		background-color: #ffffff;
+		max-width: 420px;
+		background-color: #272729;
 		border-radius: 18px;
-		padding: 32px 24px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #e0e0e0;
+		padding: 34px 24px;
 	}
 
 	.header {
 		flex-direction: column;
 		align-items: center;
-		margin-bottom: 32px;
+		margin-bottom: 30px;
 	}
 
 	.title {
-		font-size: 28px;
+		font-size: 30px;
 		font-weight: 600;
-		color: #1d1d1f;
+		color: #ffffff;
+		line-height: 36px;
 		margin-bottom: 8px;
 	}
 
 	.subtitle {
 		font-size: 15px;
-		color: #6e6e73;
+		color: #cccccc;
 		text-align: center;
-		line-height: 20px;
+		line-height: 22px;
 	}
 
 	.form {
@@ -125,67 +117,48 @@
 
 	.input-group {
 		flex-direction: column;
-		margin-bottom: 24px;
+		margin-bottom: 22px;
 	}
 
 	.label {
 		font-size: 14px;
-		color: #1d1d1f;
+		color: #cccccc;
 		margin-bottom: 8px;
-		font-weight: 600;
 	}
 
 	.password-input {
 		background-color: #ffffff;
 		border-radius: 14px;
-		padding: 12px 16px;
-		font-size: 16px;
+		padding: 14px 16px;
+		font-size: 17px;
 		color: #1d1d1f;
-		border: 1px solid #e5e7eb;
 	}
 
 	.login-btn {
 		border-radius: 999px;
 		background-color: #0066cc;
-		font-size: 16px;
+		font-size: 17px;
 		font-weight: 400;
-		height: 48px;
-		margin-bottom: 16px;
+		height: 46px;
+		margin-bottom: 14px;
 	}
 
 	.login-btn[disabled] {
-		background-color: #d2d2d7;
+		background-color: #7a7a7a;
 	}
 
 	.error-text {
 		font-size: 14px;
-		color: #dc2626;
+		color: #ff9f0a;
 		text-align: center;
-		margin-bottom: 16px;
-	}
-
-	.back-section {
-		margin-top: 24px;
-		padding-top: 20px;
-		border-top: 1px solid #d2d2d7;
-		flex-direction: column;
-		align-items: center;
+		margin-bottom: 14px;
 	}
 
 	.back-btn {
-		min-width: 200px;
 		border-radius: 999px;
 		background-color: #ffffff;
 		color: #0066cc;
-		font-size: 14px;
-		border-color: #d2d2d7;
-		margin-bottom: 8px;
-	}
-
-	.back-tips {
-		font-size: 11px;
-		color: #86868b;
-		text-align: center;
-		line-height: 16px;
+		font-size: 15px;
+		border-color: #ffffff;
 	}
 </style>

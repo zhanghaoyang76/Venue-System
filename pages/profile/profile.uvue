@@ -1,75 +1,88 @@
 <template>
 	<view class="page">
-		<view class="card user-card">
+		<view class="app-top">
+			<text class="app-title">我的</text>
+			<view class="top-actions">
+				<view class="mini-chip">
+					<text class="mini-text">...</text>
+				</view>
+				<view class="mini-chip">
+					<text class="mini-text">◉</text>
+				</view>
+			</view>
+		</view>
+
+		<view class="profile-row">
 			<view class="avatar">
 				<text class="avatar-text">{{ firstLetter() }}</text>
 			</view>
 			<view class="user-meta">
-				<text class="user-name">{{ profile.name.length > 0 ? profile.name : '未填写姓名' }}</text>
-				<text class="user-id">{{ profile.studentId.length > 0 ? profile.studentId : '学号/工号未绑定' }}</text>
+				<text class="user-name">{{ profile.name.length > 0 ? profile.name : '张同学' }}</text>
+				<text class="user-id">学号：{{ profile.studentId.length > 0 ? profile.studentId : '2023123456' }}</text>
 			</view>
+			<text class="chevron">›</text>
 		</view>
 
-		<view class="card">
-			<text class="block-title">个人信息</text>
-			<view class="field">
-				<text class="field-label">姓名</text>
-				<input class="field-input" :value="profile.name" placeholder="请输入姓名" @input="onName" />
+		<view class="profile-form">
+			<view class="form-head">
+				<text class="form-title">个人资料</text>
+				<text class="save-link" @click="save">保存</text>
 			</view>
-			<view class="field">
-				<text class="field-label">学号 / 工号</text>
-				<input
-					class="field-input"
-					:value="profile.studentId"
-					placeholder="学生填学号，教师填工号"
-					@input="onStudentId"
-				/>
-			</view>
-			<view class="field">
-				<text class="field-label">手机</text>
-				<input
-					class="field-input"
-					type="number"
-					:value="profile.phone"
-					placeholder="请输入手机号"
-					@input="onPhone"
-				/>
-			</view>
-			<view class="field">
-				<text class="field-label">学院</text>
-				<input class="field-input" :value="profile.college" placeholder="如：计算机学院" @input="onCollege" />
-			</view>
-			<button class="save-btn" type="primary" @click="save">保存资料</button>
+			<input class="field-input" :value="profile.name" placeholder="请输入姓名" @input="onName" />
+			<input class="field-input" :value="profile.studentId" placeholder="学生填学号，教师填工号" @input="onStudentId" />
+			<input class="field-input" type="number" :value="profile.phone" placeholder="请输入手机号" @input="onPhone" />
+			<input class="field-input last-input" :value="profile.college" placeholder="例如：计算机学院" @input="onCollege" />
 		</view>
 
-		<view class="card">
-			<text class="block-title">我的预约</text>
-			<view v-if="bookings.length == 0" class="empty">
-				<text class="empty-text">暂无预约记录，请在首页选择场地提交</text>
-			</view>
-			<view v-for="b in bookings" :key="b.id" class="booking-item">
-				<view class="booking-row">
-					<text class="booking-venue">{{ b.venueName }}</text>
-					<text :class="['st', stClass(b)]">{{ stLabel(b) }}</text>
+		<view class="quick-list">
+			<view class="quick-item" @click="goMyBookings">
+				<view class="quick-icon blue-icon">
+					<text class="quick-icon-text">▣</text>
 				</view>
-				<view class="booking-row booking-row-d">
-					<text class="booking-date">{{ b.date }}</text>
-					<text class="booking-slot">{{ b.timeSlot }}</text>
+				<view class="quick-main">
+					<text class="quick-title">我的预约</text>
+					<text class="quick-sub">查看审核状态、历史记录与已取消预约</text>
 				</view>
-				<text v-if="b.remark.length > 0" class="booking-remark">备注：{{ b.remark }}</text>
-				<text class="booking-created">提交于 {{ b.createdAt }}</text>
+				<text class="quick-arrow">›</text>
+			</view>
+			<view class="quick-item" @click="goNotifications">
+				<view class="quick-icon green-icon">
+					<text class="quick-icon-text">!</text>
+				</view>
+				<view class="quick-main">
+					<text class="quick-title">我的提醒</text>
+					<text class="quick-sub">查看预约审核和系统通知</text>
+				</view>
+				<text class="quick-arrow">›</text>
 			</view>
 		</view>
 
-		<button class="switch-role" type="warn" @click="switchRole">切换身份（退出预约端）</button>
+		<view class="tabbar">
+			<view class="tab" @click="goHome">
+				<text class="tab-icon">⌂</text>
+				<text class="tab-text">首页</text>
+			</view>
+			<view class="tab" @click="goVenues">
+				<text class="tab-icon">◉</text>
+				<text class="tab-text">场地</text>
+			</view>
+			<view class="tab" @click="goMyBookings">
+				<text class="tab-icon">▣</text>
+				<text class="tab-text">我的预约</text>
+			</view>
+			<view class="tab active-bottom-tab">
+				<text class="tab-icon">♡</text>
+				<text class="tab-text">我的</text>
+			</view>
+		</view>
 	</view>
 </template>
 
 <script setup lang="uts">
 	import { onShow } from '@dcloudio/uni-app'
-	import { normalizeBookingStatus, type ProfileData, type BookingRecord } from '../../common/storage.uts'
+	import { type ProfileData } from '../../common/storage.uts'
 	import { getCurrentRole, ROLE_USER } from '../../common/role.uts'
-	import { getToken, apiGetMeFull, apiPutMe, apiListMine, parseError, clearAuth } from '../../common/api.uts'
+	import { getToken, apiGetMeFull, apiPutMe, parseError, clearAuth } from '../../common/api.uts'
 
 	type ApiErr = { statusCode: number; body: string }
 
@@ -79,7 +92,6 @@
 		phone: '',
 		college: '',
 	})
-	const bookings = ref<BookingRecord[]>([])
 
 	function firstLetter(): string {
 		const n = profile.value.name
@@ -92,7 +104,6 @@
 	async function refresh(): Promise<void> {
 		const r = await apiGetMeFull()
 		profile.value = r.profile
-		bookings.value = await apiListMine()
 	}
 
 	onShow(() => {
@@ -107,31 +118,20 @@
 		})
 	})
 
-	function stLabel(b: BookingRecord): string {
-		const s = normalizeBookingStatus(b)
-		if (s == 'confirmed') {
-			return '已通过'
-		}
-		if (s == 'rejected') {
-			return '已驳回'
-		}
-		return '待审核'
+	function goHome(): void {
+		uni.reLaunch({ url: '/pages/index/index' })
 	}
 
-	function stClass(b: BookingRecord): string {
-		const s = normalizeBookingStatus(b)
-		if (s == 'confirmed') {
-			return 'st-ok'
-		}
-		if (s == 'rejected') {
-			return 'st-bad'
-		}
-		return 'st-wait'
+	function goVenues(): void {
+		uni.navigateTo({ url: '/pages/venues/venues' })
 	}
 
-	function switchRole(): void {
-		clearAuth()
-		uni.reLaunch({ url: '/pages/entry/entry' })
+	function goMyBookings(): void {
+		uni.navigateTo({ url: '/pages/my-bookings/my-bookings' })
+	}
+
+	function goNotifications(): void {
+		uni.navigateTo({ url: '/pages/notifications/notifications' })
 	}
 
 	function onName(e: UniInputEvent): void {
@@ -163,41 +163,76 @@
 <style>
 	.page {
 		flex-direction: column;
-		padding: 22px 18px;
-		padding-bottom: 32px;
+		padding: 18px 14px 92px;
 		background-color: #f5f5f7;
 		min-height: 100%;
 	}
 
-	.card {
+	.app-top {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 22px;
+	}
+
+	.app-title {
+		font-size: 17px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.top-actions {
+		flex-direction: row;
+	}
+
+	.mini-chip {
+		width: 34px;
+		height: 28px;
+		border-radius: 999px;
 		background-color: #ffffff;
-		border-radius: 18px;
-		padding: 18px;
-		margin-bottom: 14px;
+		align-items: center;
+		justify-content: center;
+		margin-left: 6px;
 		border-width: 1px;
 		border-style: solid;
 		border-color: #e0e0e0;
-		flex-direction: column;
 	}
 
-	.user-card {
+	.mini-text {
+		font-size: 14px;
+		color: #1d1d1f;
+	}
+
+	.profile-row,
+	.profile-form,
+	.quick-list {
+		background-color: #ffffff;
+		border-radius: 12px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.profile-row {
 		flex-direction: row;
 		align-items: center;
+		padding: 12px;
+		margin-bottom: 12px;
 	}
 
 	.avatar {
 		width: 56px;
 		height: 56px;
 		border-radius: 28px;
-		background-color: #0066cc;
+		background-color: #eaf3ff;
 		align-items: center;
 		justify-content: center;
-		margin-right: 14px;
+		margin-right: 12px;
 	}
 
 	.avatar-text {
 		font-size: 22px;
-		color: #ffffff;
+		color: #0066cc;
 		font-weight: 600;
 	}
 
@@ -207,138 +242,141 @@
 	}
 
 	.user-name {
-		font-size: 20px;
-		font-weight: 600;
-		color: #1d1d1f;
-		margin-bottom: 4px;
-	}
-
-	.user-id {
-		font-size: 13px;
-		color: #6e6e73;
-	}
-
-	.block-title {
 		font-size: 17px;
 		font-weight: 600;
 		color: #1d1d1f;
-		margin-bottom: 12px;
+		margin-bottom: 5px;
 	}
 
-	.field {
-		flex-direction: column;
-		margin-bottom: 12px;
-	}
-
-	.field-label {
-		font-size: 13px;
-		color: #6e6e73;
-		margin-bottom: 6px;
-	}
-
-	.field-input {
-		background-color: #ffffff;
-		border-radius: 14px;
-		padding: 12px 14px;
-		font-size: 15px;
-		color: #1d1d1f;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #d2d2d7;
-	}
-
-	.save-btn {
-		margin-top: 4px;
-		border-radius: 999px;
-		background-color: #0066cc;
-		font-size: 15px;
-	}
-
-	.empty {
-		padding: 12px 0;
-		align-items: center;
-	}
-
-	.empty-text {
-		font-size: 13px;
-		color: #86868b;
-		text-align: center;
-		line-height: 20px;
-	}
-
-	.booking-item {
-		flex-direction: column;
-		padding: 12px 0;
-		border-bottom-width: 1px;
-		border-bottom-style: solid;
-		border-bottom-color: #e0e0e0;
-	}
-
-	.booking-row {
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 6px;
-	}
-
-	.booking-row-d {
-		margin-bottom: 4px;
-	}
-
-	.st {
+	.user-id {
 		font-size: 12px;
-		font-weight: 600;
-		padding: 2px 8px;
-		border-radius: 20px;
+		color: #6e6e73;
 	}
 
-	.st-wait {
-		color: #b45309;
-		background-color: #ffedd5;
+	.chevron,
+	.quick-arrow {
+		font-size: 24px;
+		color: #86868b;
 	}
 
-	.st-ok {
-		color: #15803d;
-		background-color: #dcfce7;
+	.profile-form {
+		padding: 12px;
+		margin-bottom: 12px;
 	}
 
-	.st-bad {
-		color: #b91c1c;
-		background-color: #fee2e2;
+	.form-head {
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 10px;
 	}
 
-	.booking-venue {
-		font-size: 15px;
+	.form-title {
+		font-size: 16px;
 		font-weight: 600;
 		color: #1d1d1f;
 	}
 
-	.booking-date {
-		font-size: 13px;
+	.save-link {
+		font-size: 14px;
 		color: #0066cc;
 	}
 
-	.booking-slot {
-		font-size: 14px;
-		color: #333333;
+	.field-input {
+		background-color: #f5f5f7;
+		border-radius: 10px;
+		padding: 11px 12px;
+		font-size: 15px;
+		color: #1d1d1f;
+		margin-bottom: 8px;
+	}
+
+	.last-input {
+		margin-bottom: 0;
+	}
+
+	.quick-list {
+		flex-direction: column;
+	}
+
+	.quick-item {
+		flex-direction: row;
+		align-items: center;
+		padding: 12px;
+	}
+
+	.quick-icon {
+		width: 36px;
+		height: 36px;
+		border-radius: 10px;
+		align-items: center;
+		justify-content: center;
+		margin-right: 10px;
+	}
+
+	.blue-icon {
+		background-color: #eaf3ff;
+	}
+
+	.green-icon {
+		background-color: #f0fdf4;
+	}
+
+	.quick-icon-text {
+		font-size: 16px;
+		color: #0066cc;
+		font-weight: 600;
+	}
+
+	.quick-main {
+		flex: 1;
+		flex-direction: column;
+	}
+
+	.quick-title {
+		font-size: 15px;
+		font-weight: 600;
+		color: #1d1d1f;
 		margin-bottom: 4px;
 	}
 
-	.booking-remark {
-		font-size: 13px;
-		color: #6e6e73;
-		margin-bottom: 4px;
-		line-height: 18px;
-	}
-
-	.booking-created {
+	.quick-sub {
 		font-size: 12px;
 		color: #86868b;
 	}
 
-	.switch-role {
-		margin-top: 8px;
-		border-radius: 999px;
-		font-size: 14px;
+	.tabbar {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 64px;
+		flex-direction: row;
+		background-color: #ffffff;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #e0e0e0;
+		padding-top: 6px;
+	}
+
+	.tab {
+		flex: 1;
+		align-items: center;
+	}
+
+	.tab-icon {
+		font-size: 18px;
+		color: #86868b;
+		margin-bottom: 3px;
+	}
+
+	.tab-text {
+		font-size: 11px;
+		color: #86868b;
+	}
+
+	.active-bottom-tab .tab-icon,
+	.active-bottom-tab .tab-text {
+		color: #0066cc;
 	}
 </style>

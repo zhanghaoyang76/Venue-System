@@ -40,11 +40,11 @@ router.patch(
 
     if (status === 'confirmed' || status === 'rejected') {
       const notificationType = status === 'confirmed' ? 'booking_confirmed' : 'booking_rejected';
-      const notificationTitle = status === 'confirmed' ? 'Booking approved' : 'Booking rejected';
+      const notificationTitle = status === 'confirmed' ? '预约已通过' : '预约已驳回';
       const notificationContent =
         status === 'confirmed'
-          ? `Your booking for ${booking.venue_name} on ${booking.date} ${booking.time_slot} was approved.`
-          : `Your booking for ${booking.venue_name} on ${booking.date} ${booking.time_slot} was rejected.`;
+          ? `你的 ${booking.venue_name} ${booking.date} ${booking.time_slot} 预约已通过。`
+          : `你的 ${booking.venue_name} ${booking.date} ${booking.time_slot} 预约已被驳回。`;
 
       await createNotification(
         booking.user_id,
