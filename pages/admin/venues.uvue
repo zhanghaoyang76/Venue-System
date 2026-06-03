@@ -1,0 +1,132 @@
+<template>
+	<view class="page">
+		<view class="app-top">
+			<text class="app-title">场地管理</text>
+			<text class="top-note">本地配置</text>
+		</view>
+
+		<view class="notice-card">
+			<text class="notice-title">开放策略</text>
+			<text class="notice-sub">这里用于管理前端展示状态；后续接数据库后可扩展为真实场地配置。</text>
+		</view>
+
+		<view v-for="item in venues" :key="item.id" class="venue-card">
+			<view class="venue-head">
+				<image class="venue-thumb" :src="venueImage(item.id)" mode="aspectFill" />
+				<view class="venue-main">
+					<text class="venue-title">{{ item.name }}</text>
+					<text class="venue-sub">{{ item.location }}</text>
+				</view>
+				<switch :checked="item.open" @change="toggleOpen(item.id)" />
+			</view>
+			<view class="venue-grid">
+				<view class="info-box">
+					<text class="info-label">开放时间</text>
+					<text class="info-value">{{ item.hours }}</text>
+				</view>
+				<view class="info-box">
+					<text class="info-label">半场预约</text>
+					<text class="info-value">{{ item.halfCourt ? '支持' : '不支持' }}</text>
+				</view>
+			</view>
+			<text class="venue-desc">{{ item.desc }}</text>
+		</view>
+
+		<view class="tabbar">
+			<view class="tab" @click="goHome"><text class="tab-icon">◆</text><text class="tab-text">看板</text></view>
+			<view class="tab" @click="goBookings"><text class="tab-icon">☷</text><text class="tab-text">预约管理</text></view>
+			<view class="tab active-bottom-tab"><text class="tab-icon">▦</text><text class="tab-text">场地管理</text></view>
+			<view class="tab" @click="goSettings"><text class="tab-icon">⚙</text><text class="tab-text">设置</text></view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onLoad, onShow } from '@dcloudio/uni-app'
+	import { VENUE_LIST } from '../../common/venues.uts'
+	import { getCurrentRole, ROLE_ADMIN, isAdminAuthenticated } from '../../common/role.uts'
+	import { getToken } from '../../common/api.uts'
+
+	type VenueAdminState = {
+		id: string
+		name: string
+		emoji: string
+		desc: string
+		location: string
+		hours: string
+		open: boolean
+		halfCourt: boolean
+	}
+
+	const venues = ref<VenueAdminState[]>([])
+
+	onLoad(() => {
+		const list: VenueAdminState[] = []
+		for (let i = 0; i < VENUE_LIST.length; i++) {
+			const v = VENUE_LIST[i]
+			list.push({
+				id: v.id,
+				name: v.name,
+				emoji: v.emoji,
+				desc: v.desc,
+				location: i < 2 ? '体育馆西侧' : '体育馆二楼',
+				hours: '08:00-22:00',
+				open: true,
+				halfCourt: v.halfCourtEnabled,
+			})
+		}
+		venues.value = list
+	})
+
+	onShow(() => {
+		if (getToken().length == 0 || getCurrentRole() != ROLE_ADMIN || !isAdminAuthenticated()) {
+			uni.reLaunch({ url: '/pages/admin/login' })
+		}
+	})
+
+	function toggleOpen(id: string): void {
+		for (let i = 0; i < venues.value.length; i++) {
+			if (venues.value[i].id == id) {
+				venues.value[i].open = !venues.value[i].open
+				uni.showToast({ title: venues.value[i].open ? '已开放' : '已关闭', icon: 'none' })
+				break
+			}
+		}
+	}
+
+	function venueImage(id: string): string {
+		if (id == 'football') return '/static/venues/football.jpg'
+		if (id == 'basketball') return '/static/venues/basketball.jpg'
+		if (id == 'pingpong') return '/static/venues/pingpong.jpg'
+		return '/static/venues/badminton.jpg'
+	}
+
+	function goHome(): void { uni.navigateTo({ url: '/pages/admin/home' }) }
+	function goBookings(): void { uni.navigateTo({ url: '/pages/admin/bookings' }) }
+	function goSettings(): void { uni.navigateTo({ url: '/pages/admin/settings' }) }
+</script>
+
+<style>
+	.page { flex-direction: column; padding: 18px 14px 92px; background-color: #f5f5f7; min-height: 100%; }
+	.app-top { flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+	.app-title { font-size: 17px; font-weight: 600; color: #1d1d1f; }
+	.top-note { font-size: 13px; color: #86868b; }
+	.notice-card, .venue-card { background-color: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.notice-title { font-size: 16px; font-weight: 600; color: #1d1d1f; margin-bottom: 5px; }
+	.notice-sub { font-size: 12px; color: #6e6e73; line-height: 18px; }
+	.venue-head { flex-direction: row; align-items: center; margin-bottom: 12px; }
+	.venue-thumb { width: 44px; height: 44px; border-radius: 12px; margin-right: 10px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.venue-main { flex: 1; flex-direction: column; }
+	.venue-title { font-size: 16px; font-weight: 600; color: #1d1d1f; margin-bottom: 4px; }
+	.venue-sub { font-size: 12px; color: #86868b; }
+	.venue-grid { flex-direction: row; margin-bottom: 8px; }
+	.info-box { flex: 1; background-color: #f5f5f7; border-radius: 10px; padding: 10px; margin-right: 8px; }
+	.info-label { font-size: 11px; color: #86868b; margin-bottom: 5px; }
+	.info-value { font-size: 14px; color: #1d1d1f; font-weight: 600; }
+	.venue-desc { font-size: 12px; color: #6e6e73; line-height: 18px; }
+	.tabbar { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; flex-direction: row; background-color: #ffffff; border-top-width: 1px; border-top-style: solid; border-top-color: #e0e0e0; padding-top: 6px; }
+	.tab { flex: 1; align-items: center; }
+	.tab-icon { font-size: 18px; color: #86868b; margin-bottom: 3px; }
+	.tab-text { font-size: 11px; color: #86868b; }
+	.active-bottom-tab .tab-icon, .active-bottom-tab .tab-text { color: #0066cc; }
+</style>

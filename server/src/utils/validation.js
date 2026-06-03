@@ -49,10 +49,17 @@ function parseCourtType(value) {
 }
 
 function parseStatus(value) {
-  if (!['pending', 'confirmed', 'rejected'].includes(value)) {
-    throw badRequest('status must be pending, confirmed, or rejected');
+  if (!['pending', 'confirmed', 'rejected', 'cancelled', 'completed'].includes(value)) {
+    throw badRequest('status must be pending, confirmed, rejected, cancelled, or completed');
   }
   return value;
+}
+
+function parseBoolean(value, fieldName) {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true' || value === '1' || value === 1) return true;
+  if (value === 'false' || value === '0' || value === 0) return false;
+  throw badRequest(`${fieldName} must be boolean`);
 }
 
 function parsePositiveInteger(value, fieldName) {
@@ -71,5 +78,6 @@ module.exports = {
   parseDurationHours,
   parseCourtType,
   parseStatus,
+  parseBoolean,
   parsePositiveInteger,
 };

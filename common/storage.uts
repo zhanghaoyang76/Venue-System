@@ -13,7 +13,10 @@ export type BookingRecord = {
 	timeSlot: string
 	remark: string
 	createdAt: string
-	/** pending | confirmed | rejected */
+	courtType: string
+	durationHours: number
+	reviewRemark: string
+	/** pending | confirmed | rejected | cancelled | completed */
 	status: string
 }
 
@@ -62,6 +65,18 @@ export function loadBookings(): BookingRecord[] {
 		const s = list[i].status
 		if (s == null || s.length == 0) {
 			list[i].status = 'pending'
+			changed = true
+		}
+		if (list[i].courtType == null || list[i].courtType.length == 0) {
+			list[i].courtType = 'full'
+			changed = true
+		}
+		if (list[i].durationHours == null || list[i].durationHours <= 0) {
+			list[i].durationHours = 1
+			changed = true
+		}
+		if (list[i].reviewRemark == null) {
+			list[i].reviewRemark = ''
 			changed = true
 		}
 	}

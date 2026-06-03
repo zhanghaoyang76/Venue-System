@@ -25,9 +25,21 @@
 			}
 		},
 		{
+			"path": "pages/booking-success/booking-success",
+			"style": {
+				"navigationBarTitleText": "预约提交成功"
+			}
+		},
+		{
 			"path": "pages/my-bookings/my-bookings",
 			"style": {
 				"navigationBarTitleText": "我的预约"
+			}
+		},
+		{
+			"path": "pages/booking-record/booking-record",
+			"style": {
+				"navigationBarTitleText": "预约详情"
 			}
 		},
 		{
@@ -40,6 +52,24 @@
 			"path": "pages/admin/home",
 			"style": {
 				"navigationBarTitleText": "管理看板"
+			}
+		},
+		{
+			"path": "pages/admin/bookings",
+			"style": {
+				"navigationBarTitleText": "预约管理"
+			}
+		},
+		{
+			"path": "pages/admin/venues",
+			"style": {
+				"navigationBarTitleText": "场地管理"
+			}
+		},
+		{
+			"path": "pages/admin/settings",
+			"style": {
+				"navigationBarTitleText": "设置"
 			}
 		},
 		{

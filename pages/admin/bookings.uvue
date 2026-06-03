@@ -1,0 +1,270 @@
+<template>
+	<view class="page">
+		<view class="app-top">
+			<text class="app-title">预约管理</text>
+			<text class="top-link" @click="refresh">↻ 刷新</text>
+		</view>
+
+		<view class="filters">
+			<picker :range="venueLabels" :value="venueIndex" @change="onVenueChange">
+				<view class="filter-pill">
+					<text class="filter-text">{{ venueLabels[venueIndex] }}</text>
+					<text class="filter-arrow">⌄</text>
+				</view>
+			</picker>
+			<picker :range="statusLabels" :value="statusIndex" @change="onStatusChange">
+				<view class="filter-pill">
+					<text class="filter-text">{{ statusLabels[statusIndex] }}</text>
+					<text class="filter-arrow">⌄</text>
+				</view>
+			</picker>
+		</view>
+
+		<view class="summary-row">
+			<view class="summary-chip"><text class="summary-text">全部 {{ rows.length }}</text></view>
+			<view class="summary-chip wait-chip"><text class="summary-text">待审核 {{ countStatus('pending') }}</text></view>
+			<view class="summary-chip ok-chip"><text class="summary-text">已通过 {{ countStatus('confirmed') }}</text></view>
+			<view class="summary-chip bad-chip"><text class="summary-text">已拒绝 {{ countStatus('rejected') }}</text></view>
+		</view>
+
+		<view v-if="rows.length == 0" class="empty-box">
+			<text class="empty-title">暂无预约</text>
+			<text class="empty-sub">切换筛选条件后再查看。</text>
+		</view>
+
+		<view v-for="item in rows" :key="item.id" class="booking-card" @click="openDetail(item.id)">
+			<view class="booking-head">
+				<text :class="['status-chip', stClass(item.status)]">{{ stLabel(item.status) }}</text>
+				<text class="booking-date">{{ item.date }} {{ item.timeSlot }}</text>
+			</view>
+			<text class="booking-title">{{ item.venueName }}</text>
+			<text class="booking-line">{{ displayUser(item) }}</text>
+			<text class="booking-line">手机：{{ item.userPhone.length > 0 ? item.userPhone : '未填写' }}</text>
+			<text v-if="item.remark.length > 0" class="booking-line">备注：{{ item.remark }}</text>
+			<view class="actions">
+				<button class="action-btn pass" size="mini" @click.stop="confirmOk(item.id)">✓ 通过</button>
+				<button class="action-btn reject" size="mini" @click.stop="confirmReject(item.id)">× 拒绝</button>
+				<button class="action-btn delete" size="mini" @click.stop="removeRow(item.id)">⌫ 删除</button>
+			</view>
+		</view>
+
+		<view v-if="selected != null" class="modal-mask" @click="closeDetail">
+			<view class="detail-sheet" @click.stop="">
+				<view class="sheet-head">
+					<text class="sheet-title">预约详情</text>
+					<text class="sheet-close" @click="closeDetail">×</text>
+				</view>
+				<text :class="['status-chip', stClass(selected.status)]">{{ stLabel(selected.status) }}</text>
+				<text class="detail-title">{{ selected.venueName }}</text>
+				<text class="detail-line">时间：{{ selected.date }} {{ selected.timeSlot }}</text>
+				<text class="detail-line">预约人：{{ displayUser(selected) }}</text>
+				<text class="detail-line">手机：{{ selected.userPhone.length > 0 ? selected.userPhone : '未填写' }}</text>
+				<text class="detail-line">提交：{{ selected.createdAt }}</text>
+				<text v-if="selected.remark.length > 0" class="detail-line">备注：{{ selected.remark }}</text>
+				<view class="sheet-actions">
+					<button class="sheet-btn primary-sheet-btn" size="mini" @click="confirmOk(selected.id)">✓ 通过</button>
+					<button class="sheet-btn" size="mini" @click="confirmReject(selected.id)">× 拒绝</button>
+				</view>
+			</view>
+		</view>
+
+		<view class="tabbar">
+			<view class="tab" @click="goHome"><text class="tab-icon">◆</text><text class="tab-text">看板</text></view>
+			<view class="tab active-bottom-tab"><text class="tab-icon">☷</text><text class="tab-text">预约管理</text></view>
+			<view class="tab" @click="goVenues"><text class="tab-icon">▦</text><text class="tab-text">场地管理</text></view>
+			<view class="tab" @click="goSettings"><text class="tab-icon">⚙</text><text class="tab-text">设置</text></view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onLoad, onShow } from '@dcloudio/uni-app'
+	import { VENUE_LIST } from '../../common/venues.uts'
+	import { getCurrentRole, ROLE_ADMIN, isAdminAuthenticated } from '../../common/role.uts'
+	import { getToken, apiAdminList, apiAdminSetStatus, apiAdminDelete, parseError, clearAuth, type AdminBookingRow } from '../../common/api.uts'
+
+	type ApiErr = { statusCode: number; body: string }
+
+	const venueLabels = ref<string[]>(['全部场地'])
+	const venueIds = ref<string[]>([''])
+	const venueIndex = ref(0)
+	const statusLabels = ['全部状态', '待审核', '已通过', '已拒绝']
+	const statusIds = ['', 'pending', 'confirmed', 'rejected']
+	const statusIndex = ref(0)
+	const rows = ref<AdminBookingRow[]>([])
+	const selected = ref<AdminBookingRow | null>(null)
+
+	onLoad(() => {
+		const names: string[] = ['全部场地']
+		const ids: string[] = ['']
+		for (let i = 0; i < VENUE_LIST.length; i++) {
+			names.push(VENUE_LIST[i].name)
+			ids.push(VENUE_LIST[i].id)
+		}
+		venueLabels.value = names
+		venueIds.value = ids
+	})
+
+	onShow(() => {
+		if (getToken().length == 0 || getCurrentRole() != ROLE_ADMIN || !isAdminAuthenticated()) {
+			uni.reLaunch({ url: '/pages/admin/login' })
+			return
+		}
+		refresh()
+	})
+
+	async function refresh(): Promise<void> {
+		try {
+			rows.value = await apiAdminList(venueIds.value[venueIndex.value], statusIds[statusIndex.value])
+			if (selected.value != null) {
+				const selectedId = selected.value.id
+				for (let i = 0; i < rows.value.length; i++) {
+					if (rows.value[i].id == selectedId) {
+						selected.value = rows.value[i]
+						return
+					}
+				}
+				selected.value = null
+			}
+		} catch (e) {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+			clearAuth()
+			uni.reLaunch({ url: '/pages/entry/entry' })
+		}
+	}
+
+	function openDetail(id: string): void {
+		for (let i = 0; i < rows.value.length; i++) {
+			if (rows.value[i].id == id) {
+				selected.value = rows.value[i]
+				return
+			}
+		}
+	}
+
+	function closeDetail(): void {
+		selected.value = null
+	}
+
+	function countStatus(status: string): number {
+		let n = 0
+		for (let i = 0; i < rows.value.length; i++) {
+			if (rows.value[i].status == status) n++
+		}
+		return n
+	}
+
+	function displayUser(item: AdminBookingRow): string {
+		const name = item.userName.length > 0 ? item.userName : '未填写姓名'
+		const sid = item.userStudentId.length > 0 ? item.userStudentId : '未绑定学号'
+		return name + '（' + sid + '）'
+	}
+
+	function stLabel(status: string): string {
+		if (status == 'confirmed') return '已通过'
+		if (status == 'rejected') return '已拒绝'
+		return '待审核'
+	}
+
+	function stClass(status: string): string {
+		if (status == 'confirmed') return 'st-ok'
+		if (status == 'rejected') return 'st-bad'
+		return 'st-wait'
+	}
+
+	async function confirmOk(id: string): Promise<void> {
+		await setStatus(id, 'confirmed', '已通过')
+	}
+
+	async function confirmReject(id: string): Promise<void> {
+		await setStatus(id, 'rejected', '已拒绝')
+	}
+
+	async function setStatus(id: string, status: string, title: string): Promise<void> {
+		try {
+			await apiAdminSetStatus(id, status)
+			await refresh()
+			uni.showToast({ title: title, icon: status == 'confirmed' ? 'success' : 'none' })
+		} catch (e) {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+		}
+	}
+
+	async function removeRow(id: string): Promise<void> {
+		try {
+			await apiAdminDelete(id)
+			await refresh()
+			uni.showToast({ title: '已删除', icon: 'none' })
+		} catch (e) {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+		}
+	}
+
+	function onVenueChange(e: UniPickerChangeEvent): void {
+		const idx = parseInt(e.detail.value as string)
+		if (!isNaN(idx)) {
+			venueIndex.value = idx
+			refresh()
+		}
+	}
+
+	function onStatusChange(e: UniPickerChangeEvent): void {
+		const idx = parseInt(e.detail.value as string)
+		if (!isNaN(idx)) {
+			statusIndex.value = idx
+			refresh()
+		}
+	}
+
+	function goHome(): void { uni.navigateTo({ url: '/pages/admin/home' }) }
+	function goVenues(): void { uni.navigateTo({ url: '/pages/admin/venues' }) }
+	function goSettings(): void { uni.navigateTo({ url: '/pages/admin/settings' }) }
+</script>
+
+<style>
+	.page { flex-direction: column; padding: 18px 14px 92px; background-color: #f5f5f7; min-height: 100%; }
+	.app-top { flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+	.app-title { font-size: 17px; font-weight: 600; color: #1d1d1f; }
+	.top-link { font-size: 14px; color: #0066cc; }
+	.filters { flex-direction: row; margin-bottom: 12px; }
+	.filter-pill { width: 160px; height: 38px; flex-direction: row; align-items: center; justify-content: space-between; background-color: #ffffff; border-radius: 9px; padding: 0 14px; margin-right: 8px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.filter-text, .filter-arrow { font-size: 13px; color: #1d1d1f; }
+	.summary-row { flex-direction: row; flex-wrap: wrap; margin-bottom: 12px; }
+	.summary-chip { background-color: #ffffff; border-radius: 999px; padding: 6px 10px; margin-right: 6px; margin-bottom: 6px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.wait-chip { background-color: #f5f5f7; }
+	.ok-chip { background-color: #f5f5f7; }
+	.bad-chip { background-color: #f5f5f7; }
+	.summary-text { font-size: 12px; color: #1d1d1f; }
+	.empty-box, .booking-card { background-color: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.empty-box { align-items: center; padding: 30px 12px; }
+	.empty-title { font-size: 16px; font-weight: 600; color: #1d1d1f; margin-bottom: 6px; }
+	.empty-sub { font-size: 13px; color: #86868b; }
+	.booking-head { flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+	.status-chip { font-size: 11px; padding: 3px 7px; border-radius: 6px; }
+	.st-wait { color: #6e6e73; background-color: #f5f5f7; }
+	.st-ok { color: #0066cc; background-color: #f5f5f7; }
+	.st-bad { color: #86868b; background-color: #f5f5f7; }
+	.booking-date { font-size: 12px; color: #86868b; }
+	.booking-title { font-size: 16px; font-weight: 600; color: #1d1d1f; margin-bottom: 4px; }
+	.booking-line { font-size: 12px; color: #6e6e73; line-height: 18px; }
+	.actions { flex-direction: row; justify-content: flex-end; margin-top: 10px; }
+	.action-btn { border-radius: 7px; font-size: 12px; margin-left: 6px; }
+	.pass { background-color: #ffffff; color: #0066cc; border-color: #0066cc; }
+	.reject { background-color: #ffffff; color: #86868b; border-color: #d2d2d7; }
+	.delete { background-color: #ffffff; color: #6e6e73; border-color: #d2d2d7; }
+	.tabbar { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; flex-direction: row; background-color: #ffffff; border-top-width: 1px; border-top-style: solid; border-top-color: #e0e0e0; padding-top: 6px; }
+	.tab { flex: 1; align-items: center; }
+	.tab-icon { font-size: 18px; color: #86868b; margin-bottom: 3px; }
+	.tab-text { font-size: 11px; color: #86868b; }
+	.active-bottom-tab .tab-icon, .active-bottom-tab .tab-text { color: #0066cc; }
+	.modal-mask { position: fixed; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.28); justify-content: flex-end; }
+	.detail-sheet { background-color: #ffffff; border-top-left-radius: 18px; border-top-right-radius: 18px; padding: 18px 14px 24px; }
+	.sheet-head { flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+	.sheet-title { font-size: 17px; font-weight: 600; color: #1d1d1f; }
+	.sheet-close { font-size: 24px; color: #86868b; width: 32px; text-align: right; }
+	.detail-title { font-size: 20px; font-weight: 600; color: #1d1d1f; margin-top: 10px; margin-bottom: 8px; }
+	.detail-line { font-size: 13px; color: #6e6e73; line-height: 21px; }
+	.sheet-actions { flex-direction: row; margin-top: 16px; }
+	.sheet-btn { flex: 1; border-radius: 999px; background-color: #ffffff; color: #0066cc; border-color: #e0e0e0; margin-right: 8px; }
+	.primary-sheet-btn { background-color: #0066cc; color: #ffffff; border-color: #0066cc; }
+</style>

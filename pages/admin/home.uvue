@@ -2,14 +2,7 @@
 	<view class="page">
 		<view class="app-top">
 			<text class="app-title">管理看板</text>
-			<view class="top-actions">
-				<view class="mini-chip">
-					<text class="mini-text">•••</text>
-				</view>
-				<view class="mini-chip">
-					<text class="mini-text">◎</text>
-				</view>
-			</view>
+			<button class="identity-btn" size="mini" type="default" @click="switchRole">返回选择身份</button>
 		</view>
 
 		<view class="filters">
@@ -32,22 +25,22 @@
 			<view class="metric metric-blue">
 				<text class="metric-label">订单总数</text>
 				<text class="metric-value">{{ statTotal }}</text>
-				<text class="metric-delta">较昨日 +{{ statPending }}</text>
+				<text class="metric-delta">待审核 {{ statPending }}</text>
 			</view>
 			<view class="metric metric-green">
 				<text class="metric-label">通过率</text>
 				<text class="metric-value">{{ passRate() }}%</text>
-				<text class="metric-delta green-text">较昨日 +3.6%</text>
-			</view>
-			<view class="metric metric-blue">
-				<text class="metric-label">场地利用率</text>
-				<text class="metric-value">68.5%</text>
-				<text class="metric-delta">较昨日 +6.2%</text>
+				<text class="metric-delta green-text">已通过 {{ statOk }}</text>
 			</view>
 			<view class="metric metric-orange">
-				<text class="metric-label">今日收入（元）</text>
+				<text class="metric-label">驳回数</text>
+				<text class="metric-value">{{ statRej }}</text>
+				<text class="metric-delta orange-text">需关注冲突时段</text>
+			</view>
+			<view class="metric metric-blue">
+				<text class="metric-label">今日收入</text>
 				<text class="metric-value">{{ statOk * 60 }}</text>
-				<text class="metric-delta orange-text">较昨日 +560</text>
+				<text class="metric-delta">按 60 元/单估算</text>
 			</view>
 		</view>
 
@@ -68,7 +61,7 @@
 
 		<view class="section-head">
 			<text class="section-title">待处理预约</text>
-			<text class="section-more">查看更多 ›</text>
+			<text class="section-more" @click="goBookings">查看更多 ›</text>
 		</view>
 
 		<view v-if="pendingRows().length == 0" class="empty-box">
@@ -81,28 +74,28 @@
 				<text class="tag-wait">待审核</text>
 				<text class="pending-title">{{ item.venueName }}</text>
 				<text class="pending-line">{{ item.date }} {{ item.timeSlot }}</text>
-				<text class="pending-line">{{ item.userName }}（{{ item.userStudentId }}）</text>
+				<text class="pending-line">{{ displayUser(item) }}</text>
 			</view>
 			<view class="pending-actions">
-				<button class="action-btn pass" size="mini" @click="confirmOk(item.id)">通过</button>
-				<button class="action-btn reject" size="mini" @click="confirmReject(item.id)">拒绝</button>
+				<button class="action-btn pass" size="mini" @click.stop="confirmOk(item.id)">✓ 通过</button>
+				<button class="action-btn reject" size="mini" @click.stop="confirmReject(item.id)">× 拒绝</button>
 			</view>
 		</view>
 
-		<view class="tabbar admin-tabbar">
+		<view class="tabbar">
 			<view class="tab active-bottom-tab">
-				<text class="tab-icon">●</text>
+				<text class="tab-icon">◆</text>
 				<text class="tab-text">看板</text>
 			</view>
-			<view class="tab">
-				<text class="tab-icon">▣</text>
+			<view class="tab" @click="goBookings">
+				<text class="tab-icon">☷</text>
 				<text class="tab-text">预约管理</text>
 			</view>
-			<view class="tab">
-				<text class="tab-icon">□</text>
+			<view class="tab" @click="goVenues">
+				<text class="tab-icon">▦</text>
 				<text class="tab-text">场地管理</text>
 			</view>
-			<view class="tab" @click="switchRole">
+			<view class="tab" @click="goSettings">
 				<text class="tab-icon">⚙</text>
 				<text class="tab-text">设置</text>
 			</view>
@@ -114,14 +107,7 @@
 	import { onLoad, onShow } from '@dcloudio/uni-app'
 	import { VENUE_LIST } from '../../common/venues.uts'
 	import { getCurrentRole, ROLE_ADMIN, isAdminAuthenticated, clearAdminAuth } from '../../common/role.uts'
-	import {
-		getToken,
-		apiAdminList,
-		apiAdminSetStatus,
-		parseError,
-		clearAuth,
-		type AdminBookingRow,
-	} from '../../common/api.uts'
+	import { getToken, apiAdminList, apiAdminSetStatus, parseError, clearAuth, type AdminBookingRow } from '../../common/api.uts'
 
 	type ApiErr = { statusCode: number; body: string }
 	type HeatRow = { name: string; values: number[] }
@@ -137,10 +123,10 @@
 	const today = ref('')
 	const heatSlots = ['06-08', '08-10', '10-12', '14-16', '16-18', '18-20', '20-22']
 	const heatRows: HeatRow[] = [
-		{ name: '篮球场', values: [5, 12, 18, 21, 28, 32, 15] },
-		{ name: '足球场', values: [3, 8, 12, 16, 22, 26, 10] },
-		{ name: '乒乓馆', values: [6, 14, 20, 18, 16, 12, 6] },
-		{ name: '羽毛馆', values: [4, 10, 16, 20, 24, 28, 12] },
+		{ name: '篮球', values: [5, 12, 18, 21, 28, 32, 15] },
+		{ name: '足球', values: [3, 8, 12, 16, 22, 26, 10] },
+		{ name: '乒乓', values: [6, 14, 20, 18, 16, 12, 6] },
+		{ name: '羽毛', values: [4, 10, 16, 20, 24, 28, 12] },
 	]
 
 	onLoad(() => {
@@ -155,45 +141,6 @@
 		filterIds.value = ids
 	})
 
-	function initToday(): void {
-		const d = new Date()
-		const m = d.getMonth() + 1
-		const day = d.getDate()
-		today.value = d.getFullYear() + '-' + pad(m) + '-' + pad(day)
-	}
-
-	function pad(n: number): string {
-		return n < 10 ? '0' + n : '' + n
-	}
-
-	function updateStats(): void {
-		const list = rows.value
-		statTotal.value = list.length
-		let p = 0
-		let o = 0
-		let r = 0
-		for (let i = 0; i < list.length; i++) {
-			const st = list[i].status
-			if (st == 'pending') {
-				p++
-			} else if (st == 'confirmed') {
-				o++
-			} else if (st == 'rejected') {
-				r++
-			}
-		}
-		statPending.value = p
-		statOk.value = o
-		statRej.value = r
-	}
-
-	async function refresh(): Promise<void> {
-		const fid = filterIds.value[filterIndex.value]
-		const list = await apiAdminList(fid)
-		rows.value = list
-		updateStats()
-	}
-
 	onShow(() => {
 		if (getToken().length == 0 || getCurrentRole() != ROLE_ADMIN || !isAdminAuthenticated()) {
 			uni.reLaunch({ url: '/pages/admin/login' })
@@ -206,29 +153,38 @@
 		})
 	})
 
-	function onDateChange(e: UniPickerChangeEvent): void {
-		today.value = e.detail.value
+	function initToday(): void {
+		const d = new Date()
+		today.value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
 	}
 
-	function onFilterChange(e: UniPickerChangeEvent): void {
-		const idx = parseInt(e.detail.value as string)
-		if (!isNaN(idx)) {
-			filterIndex.value = idx
-			refresh().catch((e) => {
-				uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
-			})
+	function pad(n: number): string {
+		return n < 10 ? '0' + n : '' + n
+	}
+
+	async function refresh(): Promise<void> {
+		rows.value = await apiAdminList(filterIds.value[filterIndex.value])
+		updateStats()
+	}
+
+	function updateStats(): void {
+		statTotal.value = rows.value.length
+		statPending.value = 0
+		statOk.value = 0
+		statRej.value = 0
+		for (let i = 0; i < rows.value.length; i++) {
+			const st = rows.value[i].status
+			if (st == 'pending') statPending.value++
+			if (st == 'confirmed') statOk.value++
+			if (st == 'rejected') statRej.value++
 		}
 	}
 
 	function pendingRows(): AdminBookingRow[] {
 		const out: AdminBookingRow[] = []
 		for (let i = 0; i < rows.value.length; i++) {
-			if (rows.value[i].status == 'pending') {
-				out.push(rows.value[i])
-			}
-			if (out.length >= 2) {
-				break
-			}
+			if (rows.value[i].status == 'pending') out.push(rows.value[i])
+			if (out.length >= 3) break
 		}
 		return out
 	}
@@ -242,6 +198,12 @@
 		if (n >= 26) return ['heat-cell', 'heat-strong']
 		if (n >= 18) return ['heat-cell', 'heat-mid']
 		return ['heat-cell']
+	}
+
+	function displayUser(item: AdminBookingRow): string {
+		const name = item.userName.length > 0 ? item.userName : '未填写姓名'
+		const sid = item.userStudentId.length > 0 ? item.userStudentId : '未绑定学号'
+		return name + '（' + sid + '）'
 	}
 
 	async function confirmOk(id: string): Promise<void> {
@@ -264,6 +226,23 @@
 		}
 	}
 
+	function onDateChange(e: UniPickerChangeEvent): void {
+		today.value = e.detail.value
+	}
+
+	function onFilterChange(e: UniPickerChangeEvent): void {
+		const idx = parseInt(e.detail.value as string)
+		if (!isNaN(idx)) {
+			filterIndex.value = idx
+			refresh().catch((e) => {
+				uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+			})
+		}
+	}
+
+	function goBookings(): void { uni.navigateTo({ url: '/pages/admin/bookings' }) }
+	function goVenues(): void { uni.navigateTo({ url: '/pages/admin/venues' }) }
+	function goSettings(): void { uni.navigateTo({ url: '/pages/admin/settings' }) }
 	function switchRole(): void {
 		clearAuth()
 		clearAdminAuth()
@@ -272,315 +251,48 @@
 </script>
 
 <style>
-	.page {
-		flex-direction: column;
-		padding: 18px 14px 92px;
-		background-color: #f5f5f7;
-		min-height: 100%;
-	}
-
-	.app-top {
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 18px;
-	}
-
-	.app-title {
-		font-size: 17px;
-		font-weight: 600;
-		color: #1d1d1f;
-	}
-
-	.top-actions {
-		flex-direction: row;
-	}
-
-	.mini-chip {
-		width: 34px;
-		height: 28px;
-		border-radius: 999px;
-		background-color: #ffffff;
-		align-items: center;
-		justify-content: center;
-		margin-left: 6px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #e0e0e0;
-	}
-
-	.mini-text {
-		font-size: 14px;
-		color: #1d1d1f;
-	}
-
-	.filters {
-		flex-direction: row;
-		margin-bottom: 18px;
-	}
-
-	.filter-pill {
-		width: 160px;
-		height: 38px;
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
-		background-color: #ffffff;
-		border-radius: 9px;
-		padding: 0 14px;
-		margin-right: 8px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #e0e0e0;
-	}
-
-	.filter-text {
-		font-size: 13px;
-		color: #1d1d1f;
-	}
-
-	.filter-arrow {
-		font-size: 13px;
-		color: #1d1d1f;
-	}
-
-	.section-title {
-		font-size: 17px;
-		font-weight: 600;
-		color: #1d1d1f;
-		margin-bottom: 10px;
-	}
-
-	.metric-grid {
-		flex-direction: row;
-		flex-wrap: wrap;
-		margin-bottom: 18px;
-	}
-
-	.metric {
-		width: 160px;
-		border-radius: 10px;
-		padding: 14px;
-		margin-right: 8px;
-		margin-bottom: 8px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #e0e0e0;
-	}
-
-	.metric-blue {
-		background-color: #f2f7ff;
-	}
-
-	.metric-green {
-		background-color: #f6fffb;
-	}
-
-	.metric-orange {
-		background-color: #fffaf4;
-	}
-
-	.metric-label {
-		font-size: 12px;
-		color: #6e6e73;
-		margin-bottom: 8px;
-	}
-
-	.metric-value {
-		font-size: 24px;
-		font-weight: 600;
-		color: #1d1d1f;
-		margin-bottom: 6px;
-	}
-
-	.metric-delta {
-		font-size: 12px;
-		color: #0066cc;
-	}
-
-	.green-text {
-		color: #15803d;
-	}
-
-	.orange-text {
-		color: #f97316;
-	}
-
-	.section-head {
-		flex-direction: row;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.section-note,
-	.section-more {
-		font-size: 12px;
-		color: #86868b;
-		margin-bottom: 10px;
-	}
-
-	.heatmap {
-		background-color: #ffffff;
-		border-radius: 10px;
-		padding: 10px;
-		margin-bottom: 18px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #e0e0e0;
-	}
-
-	.heat-row {
-		flex-direction: row;
-		align-items: center;
-	}
-
-	.heat-label {
-		width: 48px;
-		font-size: 11px;
-		color: #6e6e73;
-	}
-
-	.heat-head-cell {
-		width: 38px;
-		font-size: 10px;
-		color: #6e6e73;
-		text-align: center;
-	}
-
-	.heat-cell {
-		width: 38px;
-		height: 24px;
-		background-color: #eef5ff;
-		color: #1d4ed8;
-		font-size: 11px;
-		text-align: center;
-		line-height: 24px;
-		margin-bottom: 2px;
-	}
-
-	.heat-mid {
-		background-color: #cfe3ff;
-	}
-
-	.heat-strong {
-		background-color: #9fc5ff;
-	}
-
-	.empty-box,
-	.pending-card {
-		background-color: #ffffff;
-		border-radius: 10px;
-		padding: 12px;
-		margin-bottom: 10px;
-		border-width: 1px;
-		border-style: solid;
-		border-color: #e0e0e0;
-	}
-
-	.empty-box {
-		align-items: center;
-		padding: 28px 12px;
-	}
-
-	.empty-title {
-		font-size: 16px;
-		font-weight: 600;
-		color: #1d1d1f;
-		margin-bottom: 6px;
-	}
-
-	.empty-sub {
-		font-size: 13px;
-		color: #86868b;
-	}
-
-	.pending-card {
-		flex-direction: row;
-		align-items: center;
-	}
-
-	.pending-left {
-		flex: 1;
-		flex-direction: column;
-	}
-
-	.tag-wait {
-		align-self: flex-start;
-		font-size: 11px;
-		color: #b45309;
-		background-color: #fff7ed;
-		border-radius: 6px;
-		padding: 3px 7px;
-		margin-bottom: 5px;
-	}
-
-	.pending-title {
-		font-size: 15px;
-		font-weight: 600;
-		color: #1d1d1f;
-		margin-bottom: 3px;
-	}
-
-	.pending-line {
-		font-size: 12px;
-		color: #6e6e73;
-		line-height: 17px;
-	}
-
-	.pending-actions {
-		flex-direction: row;
-	}
-
-	.action-btn {
-		border-radius: 7px;
-		font-size: 12px;
-		margin-left: 6px;
-	}
-
-	.pass {
-		background-color: #ffffff;
-		color: #0066cc;
-		border-color: #0066cc;
-	}
-
-	.reject {
-		background-color: #ffffff;
-		color: #ef4444;
-		border-color: #ef4444;
-	}
-
-	.tabbar {
-		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		height: 64px;
-		flex-direction: row;
-		background-color: #ffffff;
-		border-top-width: 1px;
-		border-top-style: solid;
-		border-top-color: #e0e0e0;
-		padding-top: 6px;
-	}
-
-	.tab {
-		flex: 1;
-		align-items: center;
-	}
-
-	.tab-icon {
-		font-size: 18px;
-		color: #86868b;
-		margin-bottom: 3px;
-	}
-
-	.tab-text {
-		font-size: 11px;
-		color: #86868b;
-	}
-
-	.active-bottom-tab .tab-icon,
-	.active-bottom-tab .tab-text {
-		color: #0066cc;
-	}
+	.page { flex-direction: column; padding: 18px 14px 92px; background-color: #f5f5f7; min-height: 100%; }
+	.app-top { flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+	.app-title { font-size: 17px; font-weight: 600; color: #1d1d1f; }
+	.identity-btn { border-radius: 999px; background-color: #ffffff; color: #0066cc; font-size: 13px; border-color: #e0e0e0; }
+	.filters { flex-direction: row; margin-bottom: 18px; }
+	.filter-pill { width: 160px; height: 38px; flex-direction: row; align-items: center; justify-content: space-between; background-color: #ffffff; border-radius: 9px; padding: 0 14px; margin-right: 8px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.filter-text, .filter-arrow { font-size: 13px; color: #1d1d1f; }
+	.section-title { font-size: 17px; font-weight: 600; color: #1d1d1f; margin-bottom: 10px; }
+	.metric-grid { flex-direction: row; flex-wrap: wrap; margin-bottom: 18px; }
+	.metric { width: 160px; border-radius: 10px; padding: 14px; margin-right: 8px; margin-bottom: 8px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.metric-blue { background-color: #f2f7ff; }
+	.metric-green { background-color: #f6fffb; }
+	.metric-orange { background-color: #fffaf4; }
+	.metric-label { font-size: 12px; color: #6e6e73; margin-bottom: 8px; }
+	.metric-value { font-size: 24px; font-weight: 600; color: #1d1d1f; margin-bottom: 6px; }
+	.metric-delta { font-size: 12px; color: #0066cc; }
+	.green-text { color: #0066cc; }
+	.orange-text { color: #86868b; }
+	.section-head { flex-direction: row; justify-content: space-between; align-items: center; }
+	.section-note, .section-more { font-size: 12px; color: #86868b; margin-bottom: 10px; }
+	.heatmap, .empty-box, .pending-card { background-color: #ffffff; border-radius: 10px; padding: 10px; margin-bottom: 18px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.heat-row { flex-direction: row; align-items: center; }
+	.heat-label { width: 48px; font-size: 11px; color: #6e6e73; }
+	.heat-head-cell { width: 38px; font-size: 10px; color: #6e6e73; text-align: center; }
+	.heat-cell { width: 38px; height: 24px; background-color: #eef5ff; color: #1d4ed8; font-size: 11px; text-align: center; line-height: 24px; margin-bottom: 2px; }
+	.heat-mid { background-color: #cfe3ff; }
+	.heat-strong { background-color: #9fc5ff; }
+	.empty-box { align-items: center; padding: 28px 12px; }
+	.empty-title { font-size: 16px; font-weight: 600; color: #1d1d1f; margin-bottom: 6px; }
+	.empty-sub { font-size: 13px; color: #86868b; }
+	.pending-card { flex-direction: row; align-items: center; padding: 12px; margin-bottom: 10px; }
+	.pending-left { flex: 1; flex-direction: column; }
+	.tag-wait { align-self: flex-start; font-size: 11px; color: #6e6e73; background-color: #f5f5f7; border-radius: 6px; padding: 3px 7px; margin-bottom: 5px; }
+	.pending-title { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 3px; }
+	.pending-line { font-size: 12px; color: #6e6e73; line-height: 17px; }
+	.pending-actions { flex-direction: row; }
+	.action-btn { border-radius: 7px; font-size: 12px; margin-left: 6px; }
+	.pass { background-color: #ffffff; color: #0066cc; border-color: #0066cc; }
+	.reject { background-color: #ffffff; color: #86868b; border-color: #d2d2d7; }
+	.tabbar { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; flex-direction: row; background-color: #ffffff; border-top-width: 1px; border-top-style: solid; border-top-color: #e0e0e0; padding-top: 6px; }
+	.tab { flex: 1; align-items: center; }
+	.tab-icon { font-size: 18px; color: #86868b; margin-bottom: 3px; }
+	.tab-text { font-size: 11px; color: #86868b; }
+	.active-bottom-tab .tab-icon, .active-bottom-tab .tab-text { color: #0066cc; }
 </style>

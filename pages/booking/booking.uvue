@@ -3,8 +3,8 @@
 		<view class="app-top">
 			<text class="back-link" @click="back">‹</text>
 			<text class="app-title">场地详情</text>
-			<view class="mini-chip">
-				<text class="mini-text">◎</text>
+			<view class="mini-chip" @click="goMyBookings">
+				<text class="mini-text">☷</text>
 			</view>
 		</view>
 
@@ -19,7 +19,7 @@
 				<image class="venue-photo" :src="venueImage(venue.id)" mode="aspectFill" />
 				<view class="venue-copy">
 					<view class="venue-head">
-						<text class="venue-title">{{ venue.name }} 1 号</text>
+						<text class="venue-title">{{ venue.name }} 1号</text>
 						<text class="status-pill">可预约</text>
 					</view>
 					<text class="venue-line">体育馆西侧</text>
@@ -29,7 +29,7 @@
 
 			<view class="section-head">
 				<text class="section-title">选择日期</text>
-				<text class="calendar-icon">▣</text>
+				<text class="calendar-icon">▦</text>
 			</view>
 			<view class="date-row">
 				<view v-for="item in dateOptions" :key="item.value" :class="['date-card', { 'date-active': item.value == dateStr }]" @click="selectDate(item.value)">
@@ -42,7 +42,7 @@
 				<text class="section-title">选择时段</text>
 				<view class="legend">
 					<text class="legend-dot ok-dot"></text>
-					<text class="legend-text">可预约</text>
+					<text class="legend-text">可约</text>
 					<text class="legend-dot busy-dot"></text>
 					<text class="legend-text">紧张</text>
 					<text class="legend-dot full-dot"></text>
@@ -69,12 +69,28 @@
 			<view v-if="venue.halfCourtEnabled" class="section">
 				<text class="section-title">场地类型</text>
 				<view class="segmented">
-					<view :class="['segment', { 'active': courtType === 'full' }]" @click="courtType = 'full'">
-						<text :class="['segment-text', { 'active-text': courtType === 'full' }]">全场</text>
+					<view :class="['segment', { 'active': courtType == 'full' }]" @click="courtType = 'full'">
+						<text :class="['segment-text', { 'active-text': courtType == 'full' }]">全场</text>
 					</view>
-					<view :class="['segment', { 'active': courtType === 'half' }]" @click="courtType = 'half'">
-						<text :class="['segment-text', { 'active-text': courtType === 'half' }]">半场</text>
+					<view :class="['segment', { 'active': courtType == 'half' }]" @click="courtType = 'half'">
+						<text :class="['segment-text', { 'active-text': courtType == 'half' }]">半场</text>
 					</view>
+				</view>
+			</view>
+
+			<view class="rules-card">
+				<text class="section-title">场地规则</text>
+				<view class="rule-row">
+					<text class="rule-label">入场</text>
+					<text class="rule-text">请提前 10 分钟到场，凭预约记录核验。</text>
+				</view>
+				<view class="rule-row">
+					<text class="rule-label">装备</text>
+					<text class="rule-text">{{ venueRuleText() }}</text>
+				</view>
+				<view class="rule-row last-rule">
+					<text class="rule-label">活动</text>
+					<text class="rule-text">{{ venueFitText() }}</text>
 				</view>
 			</view>
 
@@ -109,8 +125,6 @@
 
 	const venue = ref<VenueItem | null>(null)
 	const dateStr = ref('')
-	const minDate = ref('')
-	const maxDate = ref('')
 	const remark = ref('')
 	const courtType = ref('full')
 	const selectedSlot = ref('18:00')
@@ -131,14 +145,7 @@
 
 	function initDates(): void {
 		const d = new Date()
-		const y = d.getFullYear()
-		const m = d.getMonth() + 1
-		const day = d.getDate()
-		minDate.value = y + '-' + pad(m) + '-' + pad(day)
-		const end = new Date(d.getTime() + 13 * 24 * 60 * 60 * 1000)
-		maxDate.value = end.getFullYear() + '-' + pad(end.getMonth() + 1) + '-' + pad(end.getDate())
-		dateStr.value = minDate.value
-
+		dateStr.value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
 		const weeks = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 		const opts: DateOption[] = []
 		for (let i = 0; i < 6; i++) {
@@ -216,12 +223,30 @@
 
 	function slotRange(slot: string): string {
 		const h = parseInt(slot.substring(0, 2))
-		const next = h + 2
-		return slot + '-' + pad(next) + ':00'
+		return slot + '-' + pad(h + 2) + ':00'
+	}
+
+	function venueRuleText(): string {
+		if (venue.value == null) return ''
+		if (venue.value.id == 'badminton') return '请穿运动鞋入场，避免硬底鞋损伤场地。'
+		if (venue.value.id == 'pingpong') return '请自备球拍，离场前整理球台。'
+		return '请按场地边线使用，不得擅自占用相邻场地。'
+	}
+
+	function venueFitText(): string {
+		if (venue.value == null) return ''
+		if (venue.value.id == 'football') return '适合班级训练、社团活动和小型比赛。'
+		if (venue.value.id == 'basketball') return '适合半场训练、全场对抗和课后活动。'
+		if (venue.value.id == 'pingpong') return '适合短时训练、双人练习和课间活动。'
+		return '适合单打、双打和课后训练。'
 	}
 
 	function back(): void {
 		uni.navigateBack({})
+	}
+
+	function goMyBookings(): void {
+		uni.navigateTo({ url: '/pages/my-bookings/my-bookings' })
 	}
 
 	async function submit(): Promise<void> {
@@ -233,15 +258,18 @@
 			uni.showToast({ title: '请选择日期', icon: 'none' })
 			return
 		}
-		
 		const v = venue.value
 		uni.showLoading({ title: '提交中' })
 		try {
 			await apiCreateBooking(v.id, dateStr.value, selectedSlot.value, remark.value, courtType.value, 2)
-			uni.showToast({ title: '预约已提交', icon: 'success' })
-			setTimeout(() => {
-				uni.navigateBack({})
-			}, 500)
+			uni.redirectTo({
+				url:
+					'/pages/booking-success/booking-success?venueId=' + v.id +
+					'&venueName=' + encodeURIComponent(v.name) +
+					'&date=' + dateStr.value +
+					'&timeSlot=' + selectedSlot.value +
+					'&courtType=' + courtType.value,
+			})
 		} catch (e) {
 			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
 		} finally {
@@ -354,8 +382,8 @@
 
 	.status-pill {
 		font-size: 12px;
-		color: #15803d;
-		background-color: #f0fdf4;
+		color: #0066cc;
+		background-color: #f5f5f7;
 		padding: 4px 8px;
 		border-radius: 999px;
 	}
@@ -407,15 +435,14 @@
 		border-color: #0066cc;
 	}
 
-	.date-week {
-		font-size: 12px;
-		color: #1d1d1f;
-		margin-bottom: 5px;
-	}
-
+	.date-week,
 	.date-day {
 		font-size: 12px;
 		color: #1d1d1f;
+	}
+
+	.date-week {
+		margin-bottom: 5px;
 	}
 
 	.date-active-text {
@@ -440,15 +467,15 @@
 	}
 
 	.ok-dot {
-		background-color: #16a34a;
+		background-color: #0066cc;
 	}
 
 	.busy-dot {
-		background-color: #f59e0b;
+		background-color: #86868b;
 	}
 
 	.full-dot {
-		background-color: #ef4444;
+		background-color: #c7c7cc;
 	}
 
 	.legend-text {
@@ -488,7 +515,7 @@
 	}
 
 	.slot-busy {
-		border-color: #f59e0b;
+		background-color: #fafafc;
 	}
 
 	.slot-full {
@@ -503,19 +530,16 @@
 
 	.slot-hint {
 		font-size: 12px;
-		color: #15803d;
+		color: #0066cc;
 	}
 
 	.slot-selected-text {
 		color: #ffffff;
 	}
 
-	.slot-busy-text {
-		color: #f59e0b;
-	}
-
+	.slot-busy-text,
 	.slot-full-text {
-		color: #ef4444;
+		color: #86868b;
 	}
 
 	.section {
@@ -564,6 +588,41 @@
 		border-color: #e0e0e0;
 	}
 
+	.rules-card {
+		background-color: #ffffff;
+		border-radius: 12px;
+		padding: 14px;
+		margin-bottom: 14px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.rule-row {
+		flex-direction: row;
+		padding: 9px 0;
+		border-bottom-width: 1px;
+		border-bottom-style: solid;
+		border-bottom-color: #f0f0f0;
+	}
+
+	.last-rule {
+		border-bottom-width: 0;
+	}
+
+	.rule-label {
+		width: 48px;
+		font-size: 13px;
+		color: #86868b;
+	}
+
+	.rule-text {
+		flex: 1;
+		font-size: 13px;
+		color: #1d1d1f;
+		line-height: 20px;
+	}
+
 	.summary-row {
 		flex-direction: row;
 		align-items: center;
@@ -578,13 +637,16 @@
 		border-bottom-width: 0;
 	}
 
-	.summary-label {
+	.summary-label,
+	.summary-value {
 		font-size: 14px;
+	}
+
+	.summary-label {
 		color: #6e6e73;
 	}
 
 	.summary-value {
-		font-size: 14px;
 		color: #1d1d1f;
 	}
 
@@ -595,10 +657,10 @@
 	}
 
 	.submit {
-		border-radius: 10px;
+		border-radius: 999px;
 		background-color: #0066cc;
 		font-size: 17px;
-		font-weight: 600;
+		font-weight: 400;
 		height: 48px;
 	}
 

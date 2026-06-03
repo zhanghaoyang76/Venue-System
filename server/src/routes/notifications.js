@@ -7,7 +7,7 @@ const {
   getUnreadNotificationCount,
 } = require('../db');
 const { asyncHandler } = require('../middleware/async-handler');
-const { parsePositiveInteger } = require('../utils/validation');
+const { parseBoolean, parsePositiveInteger } = require('../utils/validation');
 
 const router = express.Router();
 
@@ -15,7 +15,9 @@ router.get(
   '/notifications',
   requireUser,
   asyncHandler(async (req, res) => {
-    const notifications = await getUserNotifications(req.user.id);
+    const limit = req.query.limit ? parsePositiveInteger(req.query.limit, 'limit') : 20;
+    const unreadOnly = req.query.unreadOnly ? parseBoolean(req.query.unreadOnly, 'unreadOnly') : false;
+    const notifications = await getUserNotifications(req.user.id, Math.min(limit, 100), unreadOnly);
     res.json({ list: notifications });
   })
 );

@@ -131,7 +131,7 @@ export async function apiPutMe(p: ProfileData): Promise<void> {
 	await request('/me', 'PUT', body, true)
 }
 
-export async function apiCreateBooking(venueId: string, date: string, timeSlot: string, remark: string, courtType: string = 'full', durationHours: number = 1.0): Promise<void> {
+export async function apiCreateBooking(venueId: string, date: string, timeSlot: string, remark: string, courtType: string = 'full', durationHours: number = 1.0): Promise<BookingRecord> {
 	const body: UTSJSONObject = {}
 	body['venueId'] = venueId
 	body['date'] = date
@@ -139,7 +139,9 @@ export async function apiCreateBooking(venueId: string, date: string, timeSlot: 
 	body['remark'] = remark
 	body['courtType'] = courtType
 	body['durationHours'] = durationHours
-	await request('/bookings', 'POST', body, true)
+	const raw = await request('/bookings', 'POST', body, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	return mapBooking(root['booking'] as UTSJSONObject)
 }
 
 export function mapBooking(o: UTSJSONObject): BookingRecord {
@@ -150,6 +152,9 @@ export function mapBooking(o: UTSJSONObject): BookingRecord {
 		date: (o['date'] as string) ?? '',
 		timeSlot: (o['timeSlot'] as string) ?? '',
 		remark: (o['remark'] as string) ?? '',
+		courtType: (o['courtType'] as string) ?? 'full',
+		durationHours: (o['durationHours'] as number) ?? 1,
+		reviewRemark: (o['reviewRemark'] as string) ?? '',
 		createdAt: (o['createdAt'] as string) ?? '',
 		status: (o['status'] as string) ?? 'pending',
 	}
@@ -166,12 +171,27 @@ export async function apiListMine(): Promise<BookingRecord[]> {
 	return out
 }
 
+export async function apiGetBooking(id: string): Promise<BookingRecord> {
+	const raw = await request('/bookings/' + id, 'GET', null, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	return mapBooking(root['booking'] as UTSJSONObject)
+}
+
+export async function apiCancelBooking(id: string): Promise<BookingRecord> {
+	const raw = await request('/bookings/' + id + '/cancel', 'PATCH', null, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	return mapBooking(root['booking'] as UTSJSONObject)
+}
+
 export type AdminBookingRow = {
 	id: string
 	venueName: string
 	date: string
 	timeSlot: string
 	remark: string
+	courtType: string
+	durationHours: number
+	reviewRemark: string
 	createdAt: string
 	status: string
 	userName: string
@@ -179,10 +199,20 @@ export type AdminBookingRow = {
 	userPhone: string
 }
 
-export async function apiAdminList(venueId: string): Promise<AdminBookingRow[]> {
+export async function apiAdminList(venueId: string, status: string = '', date: string = ''): Promise<AdminBookingRow[]> {
 	let path = '/admin/bookings'
+	const params: string[] = []
 	if (venueId.length > 0) {
-		path = path + '?venueId=' + encodeURIComponent(venueId)
+		params.push('venueId=' + encodeURIComponent(venueId))
+	}
+	if (status.length > 0) {
+		params.push('status=' + encodeURIComponent(status))
+	}
+	if (date.length > 0) {
+		params.push('date=' + encodeURIComponent(date))
+	}
+	if (params.length > 0) {
+		path = path + '?' + params.join('&')
 	}
 	const raw = await request(path, 'GET', null, true)
 	const root = JSON.parse(raw) as UTSJSONObject
@@ -196,6 +226,9 @@ export async function apiAdminList(venueId: string): Promise<AdminBookingRow[]> 
 			date: (o['date'] as string) ?? '',
 			timeSlot: (o['timeSlot'] as string) ?? '',
 			remark: (o['remark'] as string) ?? '',
+			courtType: (o['courtType'] as string) ?? 'full',
+			durationHours: (o['durationHours'] as number) ?? 1,
+			reviewRemark: (o['reviewRemark'] as string) ?? '',
 			createdAt: (o['createdAt'] as string) ?? '',
 			status: (o['status'] as string) ?? 'pending',
 			userName: (o['userName'] as string) ?? '',
@@ -206,14 +239,90 @@ export async function apiAdminList(venueId: string): Promise<AdminBookingRow[]> 
 	return out
 }
 
-export async function apiAdminSetStatus(id: string, status: string): Promise<void> {
+export async function apiAdminSetStatus(id: string, status: string, reviewRemark: string = ''): Promise<void> {
 	const body: UTSJSONObject = {}
 	body['status'] = status
+	body['reviewRemark'] = reviewRemark
 	await request('/admin/bookings/' + id + '/status', 'PATCH', body, true)
 }
 
 export async function apiAdminDelete(id: string): Promise<void> {
 	await request('/admin/bookings/' + id, 'DELETE', null, true)
+}
+
+export type AdminStats = {
+	total: number
+	pending: number
+	confirmed: number
+	rejected: number
+	cancelled: number
+	completed: number
+	passRate: number
+	revenueEstimate: number
+	hotSlots: UTSJSONObject[]
+}
+
+export async function apiAdminStats(venueId: string = '', date: string = ''): Promise<AdminStats> {
+	let path = '/admin/stats'
+	const params: string[] = []
+	if (venueId.length > 0) params.push('venueId=' + encodeURIComponent(venueId))
+	if (date.length > 0) params.push('date=' + encodeURIComponent(date))
+	if (params.length > 0) path = path + '?' + params.join('&')
+	const raw = await request(path, 'GET', null, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	return root['stats'] as AdminStats
+}
+
+export type VenueConfig = {
+	id: string
+	name: string
+	desc: string
+	location: string
+	openTime: string
+	closeTime: string
+	isOpen: boolean
+	halfCourtEnabled: boolean
+	rules: string
+	updatedAt: string
+}
+
+export async function apiListVenues(): Promise<VenueConfig[]> {
+	const raw = await request('/venues', 'GET', null, false)
+	const root = JSON.parse(raw) as UTSJSONObject
+	return root['list'] as VenueConfig[]
+}
+
+export async function apiAdminListVenues(): Promise<VenueConfig[]> {
+	const raw = await request('/admin/venues', 'GET', null, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	return root['list'] as VenueConfig[]
+}
+
+export async function apiAdminUpdateVenue(id: string, body: UTSJSONObject): Promise<VenueConfig> {
+	const raw = await request('/admin/venues/' + id, 'PUT', body, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	return root['venue'] as VenueConfig
+}
+
+export type BookingRules = {
+	advanceDays: number
+	defaultDurationHours: number
+	maxDurationHours: number
+	dailyLimit: number
+	autoApprove: boolean
+	updatedAt: string
+}
+
+export async function apiAdminGetRules(): Promise<BookingRules> {
+	const raw = await request('/admin/rules', 'GET', null, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	return root['rules'] as BookingRules
+}
+
+export async function apiAdminUpdateRules(body: UTSJSONObject): Promise<BookingRules> {
+	const raw = await request('/admin/rules', 'PUT', body, true)
+	const root = JSON.parse(raw) as UTSJSONObject
+	return root['rules'] as BookingRules
 }
 
 export type NotificationItem = {
@@ -228,8 +337,12 @@ export type NotificationItem = {
 	createdAt: string
 }
 
-export async function apiGetNotifications(): Promise<NotificationItem[]> {
-	const raw = await request('/notifications', 'GET', null, true)
+export async function apiGetNotifications(limit: number = 20, unreadOnly: boolean = false): Promise<NotificationItem[]> {
+	let path = '/notifications?limit=' + limit
+	if (unreadOnly) {
+		path = path + '&unreadOnly=true'
+	}
+	const raw = await request(path, 'GET', null, true)
 	const o = JSON.parse(raw) as UTSJSONObject
 	const list = o['list'] as UTSJSONObject[] ?? []
 	return list.map((item: UTSJSONObject) => ({

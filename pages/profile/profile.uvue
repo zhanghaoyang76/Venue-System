@@ -3,11 +3,11 @@
 		<view class="app-top">
 			<text class="app-title">我的</text>
 			<view class="top-actions">
-				<view class="mini-chip">
-					<text class="mini-text">...</text>
+				<view class="mini-chip" @click="goNotifications">
+					<text class="mini-text">!</text>
 				</view>
-				<view class="mini-chip">
-					<text class="mini-text">◉</text>
+				<view class="mini-chip" @click="switchRole">
+					<text class="mini-text">↩</text>
 				</view>
 			</view>
 		</view>
@@ -37,7 +37,7 @@
 		<view class="quick-list">
 			<view class="quick-item" @click="goMyBookings">
 				<view class="quick-icon blue-icon">
-					<text class="quick-icon-text">▣</text>
+					<text class="quick-icon-text">☷</text>
 				</view>
 				<view class="quick-main">
 					<text class="quick-title">我的预约</text>
@@ -55,6 +55,33 @@
 				</view>
 				<text class="quick-arrow">›</text>
 			</view>
+			<view class="quick-item" @click="toggleGuide">
+				<view class="quick-icon neutral-icon">
+					<text class="quick-icon-text neutral-text">?</text>
+				</view>
+				<view class="quick-main">
+					<text class="quick-title">使用规则</text>
+					<text class="quick-sub">预约说明、取消规则与入场提示</text>
+				</view>
+				<text class="quick-arrow">›</text>
+			</view>
+			<view class="quick-item" @click="switchRole">
+				<view class="quick-icon orange-icon">
+					<text class="quick-icon-text orange-text">↩</text>
+				</view>
+				<view class="quick-main">
+					<text class="quick-title">切换身份</text>
+					<text class="quick-sub">返回学生/教师与管理员入口</text>
+				</view>
+				<text class="quick-arrow">›</text>
+			</view>
+		</view>
+
+		<view v-if="showGuide" class="guide-card">
+			<text class="guide-title">预约规则</text>
+			<text class="guide-line">可提前 14 天预约，每次默认 2 小时。</text>
+			<text class="guide-line">审核通过后请提前 10 分钟到场。</text>
+			<text class="guide-line">如需取消或改期，请在我的预约中查看详情并联系管理员。</text>
 		</view>
 
 		<view class="tabbar">
@@ -63,15 +90,15 @@
 				<text class="tab-text">首页</text>
 			</view>
 			<view class="tab" @click="goVenues">
-				<text class="tab-icon">◉</text>
+				<text class="tab-icon">▦</text>
 				<text class="tab-text">场地</text>
 			</view>
 			<view class="tab" @click="goMyBookings">
-				<text class="tab-icon">▣</text>
+				<text class="tab-icon">☷</text>
 				<text class="tab-text">我的预约</text>
 			</view>
 			<view class="tab active-bottom-tab">
-				<text class="tab-icon">♡</text>
+				<text class="tab-icon">◯</text>
 				<text class="tab-text">我的</text>
 			</view>
 		</view>
@@ -81,7 +108,7 @@
 <script setup lang="uts">
 	import { onShow } from '@dcloudio/uni-app'
 	import { type ProfileData } from '../../common/storage.uts'
-	import { getCurrentRole, ROLE_USER } from '../../common/role.uts'
+	import { getCurrentRole, ROLE_USER, clearAdminAuth } from '../../common/role.uts'
 	import { getToken, apiGetMeFull, apiPutMe, parseError, clearAuth } from '../../common/api.uts'
 
 	type ApiErr = { statusCode: number; body: string }
@@ -92,6 +119,7 @@
 		phone: '',
 		college: '',
 	})
+	const showGuide = ref(false)
 
 	function firstLetter(): string {
 		const n = profile.value.name
@@ -132,6 +160,16 @@
 
 	function goNotifications(): void {
 		uni.navigateTo({ url: '/pages/notifications/notifications' })
+	}
+
+	function toggleGuide(): void {
+		showGuide.value = !showGuide.value
+	}
+
+	function switchRole(): void {
+		clearAuth()
+		clearAdminAuth()
+		uni.reLaunch({ url: '/pages/entry/entry' })
 	}
 
 	function onName(e: UniInputEvent): void {
@@ -319,13 +357,29 @@
 	}
 
 	.green-icon {
-		background-color: #f0fdf4;
+		background-color: #f5f5f7;
+	}
+
+	.orange-icon {
+		background-color: #f5f5f7;
+	}
+
+	.neutral-icon {
+		background-color: #f5f5f7;
 	}
 
 	.quick-icon-text {
 		font-size: 16px;
 		color: #0066cc;
 		font-weight: 600;
+	}
+
+	.orange-text {
+		color: #86868b;
+	}
+
+	.neutral-text {
+		color: #0066cc;
 	}
 
 	.quick-main {
@@ -343,6 +397,29 @@
 	.quick-sub {
 		font-size: 12px;
 		color: #86868b;
+	}
+
+	.guide-card {
+		background-color: #ffffff;
+		border-radius: 12px;
+		padding: 14px;
+		margin-top: 12px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e0e0e0;
+	}
+
+	.guide-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: #1d1d1f;
+		margin-bottom: 8px;
+	}
+
+	.guide-line {
+		font-size: 13px;
+		color: #6e6e73;
+		line-height: 21px;
 	}
 
 	.tabbar {

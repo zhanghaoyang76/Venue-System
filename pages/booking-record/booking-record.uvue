@@ -1,0 +1,154 @@
+<template>
+	<view class="page">
+		<view class="app-top">
+			<text class="back-link" @click="back">‹</text>
+			<text class="app-title">预约详情</text>
+			<view class="top-space"></view>
+		</view>
+
+		<view v-if="booking == null" class="empty-card">
+			<text class="empty-title">未找到预约</text>
+			<text class="empty-sub">请返回我的预约重新查看。</text>
+		</view>
+
+		<block v-if="booking != null">
+			<image class="hero-img" :src="venueImage(booking.venueId)" mode="aspectFill" />
+			<view class="detail-card">
+				<text :class="['status-chip', stClass(booking)]">{{ stLabel(booking) }}</text>
+				<text class="venue-title">{{ booking.venueName }}</text>
+				<text class="detail-line">{{ booking.date }} {{ slotRange(booking.timeSlot) }}</text>
+				<text class="detail-line">提交时间：{{ booking.createdAt }}</text>
+				<text v-if="booking.remark.length > 0" class="detail-line">备注：{{ booking.remark }}</text>
+			</view>
+
+			<view class="progress-card">
+				<text class="section-title">审核进度</text>
+				<view class="progress-row">
+					<text class="progress-dot active-dot"></text>
+					<text class="progress-text">已提交预约申请</text>
+				</view>
+				<view class="progress-row">
+					<text :class="['progress-dot', { 'active-dot': normalizeStatus() != 'pending' }]"></text>
+					<text class="progress-text">{{ progressText() }}</text>
+				</view>
+			</view>
+
+			<view class="rule-card">
+				<text class="section-title">入场提示</text>
+				<text class="rule-line">请提前 10 分钟到场，按预约时段使用场地。</text>
+				<text class="rule-line">如需调整时间，请联系管理员处理。</text>
+			</view>
+
+			<button class="primary-btn" type="primary" @click="bookAgain">再次预约</button>
+		</block>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onLoad, onShow } from '@dcloudio/uni-app'
+	import { normalizeBookingStatus, type BookingRecord } from '../../common/storage.uts'
+	import { apiListMine, parseError } from '../../common/api.uts'
+
+	type ApiErr = { statusCode: number; body: string }
+
+	const bookingId = ref('')
+	const booking = ref<BookingRecord | null>(null)
+
+	onLoad((options: OnLoadOptions) => {
+		bookingId.value = (options['id'] as string) ?? ''
+	})
+
+	onShow(() => {
+		load().catch((e) => {
+			uni.showToast({ title: parseError(e as ApiErr), icon: 'none' })
+		})
+	})
+
+	async function load(): Promise<void> {
+		const list = await apiListMine()
+		for (let i = 0; i < list.length; i++) {
+			if (list[i].id == bookingId.value) {
+				booking.value = list[i]
+				return
+			}
+		}
+		booking.value = null
+	}
+
+	function venueImage(id: string): string {
+		if (id == 'football') return '/static/venues/football.jpg'
+		if (id == 'basketball') return '/static/venues/basketball.jpg'
+		if (id == 'pingpong') return '/static/venues/pingpong.jpg'
+		return '/static/venues/badminton.jpg'
+	}
+
+	function pad(n: number): string {
+		return n < 10 ? '0' + n : '' + n
+	}
+
+	function slotRange(slot: string): string {
+		if (slot.length < 2) return ''
+		const h = parseInt(slot.substring(0, 2))
+		return slot + '-' + pad(h + 2) + ':00'
+	}
+
+	function normalizeStatus(): string {
+		if (booking.value == null) return 'pending'
+		return normalizeBookingStatus(booking.value)
+	}
+
+	function stLabel(b: BookingRecord): string {
+		const s = normalizeBookingStatus(b)
+		if (s == 'confirmed') return '已通过'
+		if (s == 'rejected') return '已取消'
+		return '待审核'
+	}
+
+	function stClass(b: BookingRecord): string {
+		const s = normalizeBookingStatus(b)
+		if (s == 'confirmed') return 'st-ok'
+		if (s == 'rejected') return 'st-bad'
+		return 'st-wait'
+	}
+
+	function progressText(): string {
+		const s = normalizeStatus()
+		if (s == 'confirmed') return '管理员已通过，按时入场即可'
+		if (s == 'rejected') return '该预约已取消或未通过'
+		return '等待管理员审核'
+	}
+
+	function bookAgain(): void {
+		if (booking.value == null) return
+		uni.navigateTo({ url: '/pages/booking/booking?venueId=' + booking.value.venueId })
+	}
+
+	function back(): void {
+		uni.navigateBack({})
+	}
+</script>
+
+<style>
+	.page { flex-direction: column; padding: 18px 14px 34px; background-color: #f5f5f7; min-height: 100%; }
+	.app-top { flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+	.back-link { width: 36px; font-size: 30px; color: #1d1d1f; }
+	.app-title { font-size: 17px; font-weight: 600; color: #1d1d1f; }
+	.top-space { width: 36px; }
+	.hero-img { width: 100%; height: 168px; border-radius: 12px; margin-bottom: 12px; }
+	.detail-card, .progress-card, .rule-card, .empty-card { background-color: #ffffff; border-radius: 12px; padding: 14px; margin-bottom: 12px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.status-chip { align-self: flex-start; font-size: 12px; border-radius: 999px; padding: 4px 9px; margin-bottom: 8px; }
+	.st-wait { color: #6e6e73; background-color: #f5f5f7; }
+	.st-ok { color: #0066cc; background-color: #f5f5f7; }
+	.st-bad { color: #86868b; background-color: #f5f5f7; }
+	.venue-title { font-size: 20px; font-weight: 600; color: #1d1d1f; margin-bottom: 6px; }
+	.detail-line, .rule-line { font-size: 13px; color: #6e6e73; line-height: 20px; }
+	.section-title { font-size: 16px; font-weight: 600; color: #1d1d1f; margin-bottom: 10px; }
+	.progress-row { flex-direction: row; align-items: center; padding: 6px 0; }
+	.progress-dot { width: 10px; height: 10px; border-radius: 5px; background-color: #d2d2d7; margin-right: 10px; }
+	.active-dot { background-color: #0066cc; }
+	.progress-text { font-size: 13px; color: #1d1d1f; }
+	.empty-card { align-items: center; padding: 32px 12px; }
+	.empty-title { font-size: 17px; font-weight: 600; color: #1d1d1f; margin-bottom: 6px; }
+	.empty-sub { font-size: 13px; color: #86868b; }
+	.primary-btn { border-radius: 999px; height: 48px; background-color: #0066cc; font-size: 16px; }
+</style>

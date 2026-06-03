@@ -1,0 +1,109 @@
+<template>
+	<view class="page">
+		<view class="success-mark">
+			<text class="success-icon">✓</text>
+		</view>
+		<text class="title">预约已提交</text>
+		<text class="subtitle">请等待管理员审核，结果会同步到我的预约和提醒。</text>
+
+		<view class="summary-card">
+			<image class="venue-img" :src="venueImage(venueId)" mode="aspectFill" />
+			<view class="summary-main">
+				<text class="venue-title">{{ venueName }}</text>
+				<text class="summary-line">{{ date }} {{ slotRange(timeSlot) }}</text>
+				<text class="summary-line">{{ courtTypeLabel() }} · 2 小时</text>
+			</view>
+		</view>
+
+		<view class="timeline-card">
+			<view class="timeline-row">
+				<text class="timeline-dot active-dot"></text>
+				<view class="timeline-main">
+					<text class="timeline-title">提交申请</text>
+					<text class="timeline-sub">系统已收到你的预约信息</text>
+				</view>
+			</view>
+			<view class="timeline-row">
+				<text class="timeline-dot"></text>
+				<view class="timeline-main">
+					<text class="timeline-title">管理员审核</text>
+					<text class="timeline-sub">审核通过后即可按时入场</text>
+				</view>
+			</view>
+		</view>
+
+		<button class="primary-btn" type="primary" @click="goMyBookings">查看我的预约</button>
+		<button class="secondary-btn" type="default" @click="goHome">继续预约</button>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onLoad } from '@dcloudio/uni-app'
+
+	const venueId = ref('')
+	const venueName = ref('场地')
+	const date = ref('')
+	const timeSlot = ref('')
+	const courtType = ref('full')
+
+	onLoad((options: OnLoadOptions) => {
+		venueId.value = (options['venueId'] as string) ?? ''
+		venueName.value = decodeURIComponent((options['venueName'] as string) ?? '场地')
+		date.value = (options['date'] as string) ?? ''
+		timeSlot.value = (options['timeSlot'] as string) ?? ''
+		courtType.value = (options['courtType'] as string) ?? 'full'
+	})
+
+	function venueImage(id: string): string {
+		if (id == 'football') return '/static/venues/football.jpg'
+		if (id == 'basketball') return '/static/venues/basketball.jpg'
+		if (id == 'pingpong') return '/static/venues/pingpong.jpg'
+		return '/static/venues/badminton.jpg'
+	}
+
+	function pad(n: number): string {
+		return n < 10 ? '0' + n : '' + n
+	}
+
+	function slotRange(slot: string): string {
+		if (slot.length < 2) return ''
+		const h = parseInt(slot.substring(0, 2))
+		return slot + '-' + pad(h + 2) + ':00'
+	}
+
+	function courtTypeLabel(): string {
+		return courtType.value == 'half' ? '半场' : '全场'
+	}
+
+	function goMyBookings(): void {
+		uni.reLaunch({ url: '/pages/my-bookings/my-bookings' })
+	}
+
+	function goHome(): void {
+		uni.reLaunch({ url: '/pages/index/index' })
+	}
+</script>
+
+<style>
+	.page { flex-direction: column; align-items: center; padding: 38px 18px 28px; background-color: #f5f5f7; min-height: 100%; }
+	.success-mark { width: 68px; height: 68px; border-radius: 34px; background-color: #0066cc; align-items: center; justify-content: center; margin-bottom: 18px; }
+	.success-icon { font-size: 34px; color: #ffffff; font-weight: 600; }
+	.title { font-size: 28px; font-weight: 600; color: #1d1d1f; margin-bottom: 8px; }
+	.subtitle { font-size: 15px; color: #6e6e73; text-align: center; line-height: 22px; margin-bottom: 22px; }
+	.summary-card, .timeline-card { width: 100%; background-color: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 12px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.summary-card { flex-direction: row; align-items: center; }
+	.venue-img { width: 96px; height: 72px; border-radius: 8px; margin-right: 12px; }
+	.summary-main { flex: 1; flex-direction: column; }
+	.venue-title { font-size: 17px; font-weight: 600; color: #1d1d1f; margin-bottom: 6px; }
+	.summary-line { font-size: 13px; color: #6e6e73; line-height: 19px; }
+	.timeline-card { flex-direction: column; margin-bottom: 18px; }
+	.timeline-row { flex-direction: row; align-items: center; padding: 8px 0; }
+	.timeline-dot { width: 10px; height: 10px; border-radius: 5px; background-color: #d2d2d7; margin-right: 12px; }
+	.active-dot { background-color: #0066cc; }
+	.timeline-main { flex: 1; flex-direction: column; }
+	.timeline-title { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 3px; }
+	.timeline-sub { font-size: 12px; color: #86868b; }
+	.primary-btn, .secondary-btn { width: 100%; border-radius: 999px; height: 48px; font-size: 16px; margin-bottom: 10px; }
+	.primary-btn { background-color: #0066cc; }
+	.secondary-btn { background-color: #ffffff; color: #0066cc; border-color: #e0e0e0; }
+</style>

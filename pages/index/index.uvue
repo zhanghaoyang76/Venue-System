@@ -5,10 +5,10 @@
 			<view class="top-actions">
 				<view class="mini-chip" @click="goNotifications">
 					<text class="notice-dot" v-if="unreadCount > 0">{{ unreadCount }}</text>
-					<text class="mini-text">...</text>
+					<text class="mini-text">!</text>
 				</view>
-				<view class="mini-chip">
-					<text class="mini-text">◉</text>
+				<view class="mini-chip" @click="goProfile">
+					<text class="mini-text">◯</text>
 				</view>
 			</view>
 		</view>
@@ -33,9 +33,7 @@
 
 		<view class="category-row">
 			<view v-for="item in VENUE_LIST" :key="item.id" class="category" @click="openBooking(item.id)">
-				<view class="category-icon">
-					<text class="category-emoji">{{ item.emoji }}</text>
-				</view>
+				<image class="category-img" :src="venueImage(item.id)" mode="aspectFill" />
 				<text class="category-name">{{ item.name }}</text>
 			</view>
 		</view>
@@ -62,15 +60,15 @@
 				<text class="tab-text">首页</text>
 			</view>
 			<view class="tab" @click="goVenues">
-				<text class="tab-icon">◉</text>
+				<text class="tab-icon">▦</text>
 				<text class="tab-text">场地</text>
 			</view>
 			<view class="tab" @click="goMyBookings">
-				<text class="tab-icon">▣</text>
+				<text class="tab-icon">☷</text>
 				<text class="tab-text">我的预约</text>
 			</view>
 			<view class="tab" @click="goProfile">
-				<text class="tab-icon">♡</text>
+				<text class="tab-icon">◯</text>
 				<text class="tab-text">我的</text>
 			</view>
 		</view>
@@ -105,41 +103,30 @@
 	}
 
 	function openBooking(venueId: string): void {
-		uni.navigateTo({
-			url: '/pages/booking/booking?venueId=' + venueId,
-		})
+		uni.navigateTo({ url: '/pages/booking/booking?venueId=' + venueId })
 	}
 
 	function goVenues(): void {
-		uni.navigateTo({
-			url: '/pages/venues/venues',
-		})
+		uni.navigateTo({ url: '/pages/venues/venues' })
 	}
 
 	function goMyBookings(): void {
-		uni.navigateTo({
-			url: '/pages/my-bookings/my-bookings',
-		})
+		uni.navigateTo({ url: '/pages/my-bookings/my-bookings' })
 	}
 
 	function goProfile(): void {
-		uni.navigateTo({
-			url: '/pages/profile/profile',
-		})
+		uni.navigateTo({ url: '/pages/profile/profile' })
 	}
 
 	async function loadUnreadCount(): Promise<void> {
 		try {
-			const count = await apiGetUnreadNotificationCount()
-			unreadCount.value = count
+			unreadCount.value = await apiGetUnreadNotificationCount()
 		} catch (e) {
 		}
 	}
 
 	function goNotifications(): void {
-		uni.navigateTo({
-			url: '/pages/notifications/notifications',
-		})
+		uni.navigateTo({ url: '/pages/notifications/notifications' })
 	}
 </script>
 
@@ -262,8 +249,8 @@
 		flex-direction: row;
 		align-items: center;
 		background-color: #ffffff;
-		border-radius: 10px;
-		padding: 0 14px;
+		border-radius: 999px;
+		padding: 0 16px;
 		margin-bottom: 16px;
 		border-width: 1px;
 		border-style: solid;
@@ -271,13 +258,13 @@
 	}
 
 	.search-icon {
-		font-size: 18px;
+		font-size: 17px;
 		color: #86868b;
 		margin-right: 8px;
 	}
 
 	.search-text {
-		font-size: 14px;
+		font-size: 15px;
 		color: #86868b;
 	}
 
@@ -292,21 +279,14 @@
 		align-items: center;
 	}
 
-	.category-icon {
-		width: 46px;
-		height: 46px;
-		border-radius: 23px;
-		background-color: #ffffff;
-		align-items: center;
-		justify-content: center;
+	.category-img {
+		width: 52px;
+		height: 52px;
+		border-radius: 14px;
 		margin-bottom: 8px;
 		border-width: 1px;
 		border-style: solid;
 		border-color: #e0e0e0;
-	}
-
-	.category-emoji {
-		font-size: 25px;
 	}
 
 	.category-name {
@@ -329,7 +309,7 @@
 
 	.section-more {
 		font-size: 13px;
-		color: #86868b;
+		color: #0066cc;
 	}
 
 	.venue-list {
@@ -374,8 +354,8 @@
 
 	.status-pill {
 		font-size: 12px;
-		color: #15803d;
-		background-color: #f0fdf4;
+		color: #0066cc;
+		background-color: #f5f5f7;
 		border-radius: 999px;
 		padding: 4px 8px;
 	}
@@ -400,7 +380,7 @@
 	}
 
 	.tab-icon {
-		font-size: 18px;
+		font-size: 17px;
 		color: #86868b;
 		margin-bottom: 3px;
 	}

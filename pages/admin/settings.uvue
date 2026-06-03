@@ -1,0 +1,157 @@
+<template>
+	<view class="page">
+		<view class="app-top">
+			<text class="app-title">设置</text>
+		</view>
+
+		<view class="profile-card">
+			<view class="avatar"><text class="avatar-text">管</text></view>
+			<view class="profile-main">
+				<text class="profile-name">管理员</text>
+				<text class="profile-sub">负责预约审核、场地状态与系统入口管理</text>
+			</view>
+		</view>
+
+		<view class="setting-list">
+			<view class="setting-item">
+				<view class="setting-main">
+					<text class="setting-title">管理员密码</text>
+					<text class="setting-sub">当前在管理登录页中校验，默认密码为 011490。</text>
+				</view>
+			</view>
+			<view class="setting-item">
+				<view class="setting-main">
+					<text class="setting-title">管理员身份</text>
+					<text class="setting-sub">后端根据 ADMIN_OPENID 或用户 role=admin 识别。</text>
+				</view>
+			</view>
+			<view class="setting-item" @click="switchRole">
+				<view class="setting-main">
+					<text class="setting-title danger-title">返回选择身份</text>
+					<text class="setting-sub">退出管理端，回到学生/教师与管理员入口。</text>
+				</view>
+				<text class="arrow">›</text>
+			</view>
+		</view>
+
+		<view class="rules-card">
+			<text class="rules-title">预约规则配置</text>
+			<view class="rule-row">
+				<view class="rule-main">
+					<text class="rule-title">可提前预约</text>
+					<text class="rule-sub">{{ advanceDays }} 天内可预约</text>
+				</view>
+				<view class="stepper">
+					<text class="step-btn" @click="decAdvance">−</text>
+					<text class="step-value">{{ advanceDays }}</text>
+					<text class="step-btn" @click="incAdvance">+</text>
+				</view>
+			</view>
+			<view class="rule-row">
+				<view class="rule-main">
+					<text class="rule-title">单次时长</text>
+					<text class="rule-sub">{{ durationHours }} 小时 / 次</text>
+				</view>
+				<view class="stepper">
+					<text class="step-btn" @click="decDuration">−</text>
+					<text class="step-value">{{ durationHours }}</text>
+					<text class="step-btn" @click="incDuration">+</text>
+				</view>
+			</view>
+			<view class="rule-row last-rule">
+				<view class="rule-main">
+					<text class="rule-title">审核模式</text>
+					<text class="rule-sub">{{ autoApprove ? '自动通过' : '管理员审核' }}</text>
+				</view>
+				<switch :checked="autoApprove" @change="toggleApprove" />
+			</view>
+		</view>
+
+		<view class="tabbar">
+			<view class="tab" @click="goHome"><text class="tab-icon">◆</text><text class="tab-text">看板</text></view>
+			<view class="tab" @click="goBookings"><text class="tab-icon">☷</text><text class="tab-text">预约管理</text></view>
+			<view class="tab" @click="goVenues"><text class="tab-icon">▦</text><text class="tab-text">场地管理</text></view>
+			<view class="tab active-bottom-tab"><text class="tab-icon">⚙</text><text class="tab-text">设置</text></view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { onShow } from '@dcloudio/uni-app'
+	import { getCurrentRole, ROLE_ADMIN, isAdminAuthenticated, clearAdminAuth } from '../../common/role.uts'
+	import { getToken, clearAuth } from '../../common/api.uts'
+
+	const advanceDays = ref(14)
+	const durationHours = ref(2)
+	const autoApprove = ref(false)
+
+	onShow(() => {
+		if (getToken().length == 0 || getCurrentRole() != ROLE_ADMIN || !isAdminAuthenticated()) {
+			uni.reLaunch({ url: '/pages/admin/login' })
+		}
+	})
+
+	function goHome(): void { uni.navigateTo({ url: '/pages/admin/home' }) }
+	function goBookings(): void { uni.navigateTo({ url: '/pages/admin/bookings' }) }
+	function goVenues(): void { uni.navigateTo({ url: '/pages/admin/venues' }) }
+	function switchRole(): void {
+		clearAuth()
+		clearAdminAuth()
+		uni.reLaunch({ url: '/pages/entry/entry' })
+	}
+
+	function incAdvance(): void {
+		if (advanceDays.value < 30) advanceDays.value++
+	}
+
+	function decAdvance(): void {
+		if (advanceDays.value > 1) advanceDays.value--
+	}
+
+	function incDuration(): void {
+		if (durationHours.value < 4) durationHours.value++
+	}
+
+	function decDuration(): void {
+		if (durationHours.value > 1) durationHours.value--
+	}
+
+	function toggleApprove(): void {
+		autoApprove.value = !autoApprove.value
+	}
+</script>
+
+<style>
+	.page { flex-direction: column; padding: 18px 14px 92px; background-color: #f5f5f7; min-height: 100%; }
+	.app-top { flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+	.app-title { font-size: 17px; font-weight: 600; color: #1d1d1f; }
+	.profile-card, .setting-list { background-color: #ffffff; border-radius: 12px; border-width: 1px; border-style: solid; border-color: #e0e0e0; margin-bottom: 12px; }
+	.profile-card { flex-direction: row; align-items: center; padding: 12px; }
+	.avatar { width: 56px; height: 56px; border-radius: 28px; background-color: #eaf3ff; align-items: center; justify-content: center; margin-right: 12px; }
+	.avatar-text { font-size: 22px; color: #0066cc; font-weight: 600; }
+	.profile-main { flex: 1; flex-direction: column; }
+	.profile-name { font-size: 17px; font-weight: 600; color: #1d1d1f; margin-bottom: 5px; }
+	.profile-sub { font-size: 12px; color: #6e6e73; line-height: 18px; }
+	.setting-list { flex-direction: column; }
+	.setting-item { flex-direction: row; align-items: center; padding: 14px 12px; }
+	.setting-main { flex: 1; flex-direction: column; }
+	.setting-title { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 5px; }
+	.danger-title { color: #ef4444; }
+	.setting-sub { font-size: 12px; color: #86868b; line-height: 18px; }
+	.arrow { font-size: 24px; color: #86868b; }
+	.rules-card { background-color: #ffffff; border-radius: 12px; padding: 14px 12px; margin-bottom: 12px; border-width: 1px; border-style: solid; border-color: #e0e0e0; }
+	.rules-title { font-size: 16px; font-weight: 600; color: #1d1d1f; margin-bottom: 10px; }
+	.rule-row { flex-direction: row; align-items: center; padding: 12px 0; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #f0f0f0; }
+	.last-rule { border-bottom-width: 0; }
+	.rule-main { flex: 1; flex-direction: column; }
+	.rule-title { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 4px; }
+	.rule-sub { font-size: 12px; color: #86868b; }
+	.stepper { flex-direction: row; align-items: center; background-color: #f5f5f7; border-radius: 999px; padding: 4px; }
+	.step-btn { width: 28px; height: 28px; border-radius: 14px; background-color: #ffffff; color: #0066cc; text-align: center; line-height: 28px; font-size: 18px; }
+	.step-value { width: 30px; text-align: center; font-size: 14px; color: #1d1d1f; font-weight: 600; }
+	.tabbar { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; flex-direction: row; background-color: #ffffff; border-top-width: 1px; border-top-style: solid; border-top-color: #e0e0e0; padding-top: 6px; }
+	.tab { flex: 1; align-items: center; }
+	.tab-icon { font-size: 18px; color: #86868b; margin-bottom: 3px; }
+	.tab-text { font-size: 11px; color: #86868b; }
+	.active-bottom-tab .tab-icon, .active-bottom-tab .tab-text { color: #0066cc; }
+</style>

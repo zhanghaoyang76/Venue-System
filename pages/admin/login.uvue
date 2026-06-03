@@ -9,10 +9,10 @@
 			<view class="form">
 				<view class="input-group">
 					<text class="label">管理员密码</text>
-					<input 
-						class="password-input" 
-						:value="password" 
-						password 
+					<input
+						class="password-input"
+						:value="password"
+						password
 						placeholder="请输入密码"
 						@input="onPasswordInput"
 						@confirm="login"
@@ -25,7 +25,7 @@
 
 				<text class="error-text" v-if="errorMessage">{{ errorMessage }}</text>
 
-				<button class="back-btn" type="default" @click="backToEntry">返回入口</button>
+				<button class="back-btn" type="default" @click="backToEntry">返回选择身份</button>
 			</view>
 		</view>
 	</view>
